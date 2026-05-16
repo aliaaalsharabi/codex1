@@ -2,14 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:appwrite/appwrite.dart';
 import 'package:codex_firebase/providers.dart';
 import 'package:codex_firebase/services/connectivity_service.dart';
+import 'package:codex_firebase/services/appwrite_storage_service.dart';
 import 'package:codex_firebase/views/Splash_Screen.dart';
 import 'package:codex_firebase/views/no_internet_widget.dart';
+
+late final AppwriteStorageService appwriteStorageService;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  final client = Client()
+      .setEndpoint('https://cloud.appwrite.io/v1')
+      .setProject('6a067722000222d0bfbb');
+
+  appwriteStorageService = AppwriteStorageService(client);
   runApp(const CodexApp());
 }
 
@@ -22,6 +32,7 @@ class CodexApp extends StatelessWidget {
       providers: [
         ...AppProviders.providers,
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
+        Provider<AppwriteStorageService>.value(value: appwriteStorageService),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -38,7 +49,6 @@ class CodexApp extends StatelessWidget {
   }
 }
 
-// واجهة التحقق من الاتصال بالإنترنت قبل عرض التطبيق
 class ConnectivityWrapper extends StatefulWidget {
   const ConnectivityWrapper({super.key});
 
@@ -50,34 +60,19 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
   @override
   void initState() {
     super.initState();
-    // ✅ طلب الصلاحيات عند بدء التطبيق
     requestPermissions();
   }
 
-  // ✅ دالة طلب الصلاحيات
   Future<void> requestPermissions() async {
     try {
-      // طلب صلاحيات التخزين والكاميرا والصور
-      final statuses = await [
-        Permission.storage,
-        Permission.camera,
-        Permission.photos,
-      ].request();
+      final camera = await Permission.camera.request();
+      print('✅ الكاميرا: $camera');
 
-      // طباعة حالة الصلاحيات للتصحيح
-      print('✅ Permission storage: ${statuses[Permission.storage]}');
-      print('✅ Permission camera: ${statuses[Permission.camera]}');
-      print('✅ Permission photos: ${statuses[Permission.photos]}');
+      final storage = await Permission.storage.request();
+      print('✅ التخزين: $storage');
 
-      // إذا كانت الصلاحيات ممنوعة، يمكن عرض رسالة للمستخدم
-      if (statuses[Permission.camera]!.isDenied) {
-        print('⚠️ صلاحية الكاميرا ممنوعة');
-      }
-      if (statuses[Permission.storage]!.isDenied) {
-        print('⚠️ صلاحية التخزين ممنوعة');
-      }
     } catch (e) {
-      print('❌ خطأ في طلب الصلاحيات: $e');
+      print('❌ خطأ: $e');
     }
   }
 
@@ -89,9 +84,8 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
           return Scaffold(
             body: NoInternetWidget(
               onRetry: () async {
-                final newStatus = await connectivity.isConnected;
-                if (newStatus && context.mounted) {
-                  (context as Element).markNeedsBuild();
+                if (context.mounted) {
+                  setState(() {});
                 }
               },
             ),

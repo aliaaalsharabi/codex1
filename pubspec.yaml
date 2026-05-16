@@ -9,7 +9,6 @@ environment:
 
 dependencies:
   connectivity_plus: ^6.0.0
-  permission_handler: ^11.0.0
   flutter:
     sdk: flutter
 
@@ -23,8 +22,11 @@ dependencies:
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   image_picker: ^1.0.4
+  appwrite: ^11.0.0
+  mime: ^1.0.0
   intl: ^0.18.1
   cupertino_icons: ^1.0.8
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

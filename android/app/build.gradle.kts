@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.codex_firebase"
-        minSdk = 23
+        minSdk = 21  // ✅ تم التغيير من 23 إلى 21 (مهم لـ permission_handler)
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -40,6 +40,8 @@ flutter {
 
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    // ✅ إضافة مكتبة دعم Camera (مهمة لـ permission_handler)
+    implementation("androidx.camera:camera-core:1.4.0")
 }
 
 apply(plugin = "com.google.gms.google-services")
