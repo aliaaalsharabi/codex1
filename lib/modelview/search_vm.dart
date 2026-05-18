@@ -23,7 +23,7 @@ class Search_vm extends BaseVM {
           userId: data['userId'] ?? '',
           price: (data['price'] ?? 0).toDouble(),
           name: data['name'] ?? '',
-          image: data['image'],
+          imageId: data['image'],
           description: data['description'],
           stockQuantity: data['stockQuantity'] ?? 0,
           status: data['status'] ?? 'available',

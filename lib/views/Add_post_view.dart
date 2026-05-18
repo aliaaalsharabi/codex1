@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:codex_firebase/constants/colors.dart';
 import 'package:codex_firebase/constants/sizes.dart';
 import 'package:codex_firebase/modelview/theme_vm.dart';
+import 'package:codex_firebase/services/appwrite_storage_service.dart';
 
 class AddPostView extends StatefulWidget {
   const AddPostView({super.key});
@@ -18,23 +18,32 @@ class AddPostView extends StatefulWidget {
 
 class _AddPostViewState extends State<AddPostView> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _descriptionController =
+  TextEditingController();
   final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _jobTypeController = TextEditingController();
-  final TextEditingController _deadlineController = TextEditingController();
+  final TextEditingController _locationController =
+  TextEditingController();
+  final TextEditingController _jobTypeController =
+  TextEditingController();
+  final TextEditingController _deadlineController =
+  TextEditingController();
 
   String? _selectedCategory;
   File? _selectedImage;
   bool _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  // ================= PICK IMAGE =================
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
@@ -42,36 +51,49 @@ class _AddPostViewState extends State<AddPostView> {
     }
   }
 
-  Future<String?> _uploadImage() async {
+  // ================= UPLOAD IMAGE =================
+
+  Future<String?> _uploadImageToAppwrite() async {
     if (_selectedImage == null) return null;
 
     try {
-      // إنشاء اسم فريد للصورة
-      final String fileName = 'jobs/${DateTime.now().millisecondsSinceEpoch}_${_auth.currentUser?.uid}.jpg';
-      final Reference storageRef = _storage.ref().child(fileName);
+      final storageService =
+      Provider.of<AppwriteStorageService>(
+        context,
+        listen: false,
+      );
 
-      // رفع الصورة مع عرض حالة التحميل
-      await storageRef.putFile(_selectedImage!);
+      final result =
+      await storageService.uploadImage(
+        _selectedImage!,
+      );
 
-      // الحصول على رابط التحميل
-      final String downloadUrl = await storageRef.getDownloadURL();
-      print('✅ تم رفع الصورة بنجاح: $downloadUrl');
-      return downloadUrl;
+      final imageId = result.$id;
+
+      print(
+          '✅ تم رفع الصورة إلى Appwrite بنجاح، ID: $imageId');
+
+      return imageId;
     } catch (e) {
       print('❌ خطأ في رفع الصورة: $e');
       return null;
     }
   }
 
+  // ================= SUBMIT POST =================
+
   Future<void> _submitPost() async {
     if (_selectedCategory == null) {
-      _showError('الرجاء اختيار النوع (وظيفة أو منتج)');
+      _showError(
+          'الرجاء اختيار النوع (وظيفة أو منتج)');
       return;
     }
+
     if (_titleController.text.trim().isEmpty) {
       _showError('الرجاء إدخال العنوان');
       return;
     }
+
     if (_descriptionController.text.trim().isEmpty) {
       _showError('الرجاء إدخال الوصف');
       return;
@@ -81,31 +103,45 @@ class _AddPostViewState extends State<AddPostView> {
 
     try {
       final userId = _auth.currentUser?.uid;
+
       if (userId == null) {
         _showError('يجب تسجيل الدخول أولاً');
         return;
       }
 
-      // ✅ رفع الصورة أولاً
-      String? imageUrl = await _uploadImage();
+      String? imageId =
+      await _uploadImageToAppwrite();
 
-      // ✅ التحقق من رفع الصورة
-      if (_selectedImage != null && imageUrl == null) {
-        _showError('فشل رفع الصورة، يرجى المحاولة مرة أخرى');
-        setState(() => _isLoading = false);
+      if (_selectedImage != null &&
+          imageId == null) {
+        _showError(
+            'فشل رفع الصورة، يرجى المحاولة');
         return;
       }
 
+      // ================= JOB =================
+
       if (_selectedCategory == 'job') {
-        // إضافة وظيفة إلى مجموعة jobs
         final Map<String, dynamic> jobData = {
           'userId': userId,
-          'nameJob': _titleController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'location': _locationController.text.trim().isEmpty ? 'موقع غير محدد' : _locationController.text.trim(),
-          'jobType': _jobTypeController.text.trim().isEmpty ? 'غير محدد' : _jobTypeController.text.trim(),
+          'nameJob':
+          _titleController.text.trim(),
+          'description':
+          _descriptionController.text.trim(),
+          'location': _locationController
+              .text
+              .trim()
+              .isEmpty
+              ? 'غير محدد'
+              : _locationController.text.trim(),
+          'jobType': _jobTypeController
+              .text
+              .trim()
+              .isEmpty
+              ? 'غير محدد'
+              : _jobTypeController.text.trim(),
           'status': 'open',
-          'image': imageUrl, // ✅ حفظ رابط الصورة
+          'imageId': imageId,
           'numberOfLike': 0,
           'likes': [],
           'commentCount': 0,
@@ -113,25 +149,43 @@ class _AddPostViewState extends State<AddPostView> {
           'updatedAt': Timestamp.now(),
         };
 
-        if (_deadlineController.text.trim().isNotEmpty) {
+        if (_deadlineController
+            .text
+            .trim()
+            .isNotEmpty) {
           try {
-            jobData['deadline'] = Timestamp.fromDate(DateTime.parse(_deadlineController.text.trim()));
+            jobData['deadline'] =
+                Timestamp.fromDate(
+                  DateTime.parse(
+                    _deadlineController.text.trim(),
+                  ),
+                );
           } catch (e) {
-            print('خطأ في تحويل التاريخ: $e');
+            print('خطأ في التاريخ: $e');
           }
         }
 
-        await _firestore.collection('jobs').add(jobData);
-        print('✅ تم إضافة الوظيفة بنجاح مع الصورة: ${imageUrl != null ? "نعم" : "لا"}');
+        await _firestore
+            .collection('jobs')
+            .add(jobData);
 
-      } else {
-        // إضافة منتج إلى مجموعة products
-        final Map<String, dynamic> productData = {
+        print('✅ تم إضافة الوظيفة');
+      }
+
+      // ================= PRODUCT =================
+
+      else {
+        final Map<String, dynamic>
+        productData = {
           'userId': userId,
-          'name': _titleController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'price': double.tryParse(_priceController.text.trim()) ?? 0,
-          'image': imageUrl, // ✅ حفظ رابط الصورة
+          'name':
+          _titleController.text.trim(),
+          'description':
+          _descriptionController.text.trim(),
+          'price': double.tryParse(
+              _priceController.text.trim()) ??
+              0,
+          'imageId': imageId,
           'category': 'general',
           'status': 'available',
           'stockQuantity': 1,
@@ -139,330 +193,716 @@ class _AddPostViewState extends State<AddPostView> {
           'updatedAt': Timestamp.now(),
         };
 
-        await _firestore.collection('products').add(productData);
-        print('✅ تم إضافة المنتج بنجاح مع الصورة: ${imageUrl != null ? "نعم" : "لا"}');
+        await _firestore
+            .collection('products')
+            .add(productData);
+
+        print('✅ تم إضافة المنتج');
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           SnackBar(
-            content: Text(_selectedImage != null ? 'تم النشر بنجاح مع الصورة' : 'تم النشر بنجاح (بدون صورة)'),
             backgroundColor: Colors.green,
+            behavior:
+            SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius:
+              BorderRadius.circular(14),
+            ),
+            content: Text(
+              _selectedImage != null
+                  ? 'تم النشر بنجاح مع الصورة'
+                  : 'تم النشر بنجاح',
+              textAlign: TextAlign.right,
+            ),
           ),
         );
-        Navigator.pop(context, true); // ✅ إرجاع true للإشارة إلى نجاح الإضافة
+
+        Navigator.pop(context, true);
       }
     } catch (e) {
-      print('❌ خطأ في إضافة المنشور: $e');
+      print('❌ خطأ: $e');
+
       if (mounted) {
         _showError('حدث خطأ: ${e.toString()}');
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
+  // ================= ERROR =================
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: TColors.error),
+      SnackBar(
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius:
+          BorderRadius.circular(14),
+        ),
+        content: Text(
+          message,
+          textAlign: TextAlign.right,
+        ),
+      ),
     );
   }
 
+  // ================= BUILD =================
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
-    final fieldFillColor = isDark ? TColors.darkerGrey : const Color(0xFFF0F7FA);
-    final labelStyle = TextStyle(
-      fontSize: TSizes.fontSizeMd,
-      fontWeight: FontWeight.bold,
-      color: isDark ? TColors.white : TColors.black,
+    final isDark =
+        Provider.of<Theme_Vm>(context).isDarkMode;
+
+    final fieldFillColor = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFF7FAFC);
+
+    final backgroundColor = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF4F8FB);
+
+    final cardColor =
+    isDark ? const Color(0xFF1A1A1A) : Colors.white;
+
+    final textStyle = TextStyle(
+      color:
+      isDark ? Colors.white : Colors.black87,
+      fontSize: 15,
     );
-    final textStyle = TextStyle(color: isDark ? TColors.white : TColors.black);
 
     return Scaffold(
-      backgroundColor: isDark ? TColors.dark : TColors.white,
+      backgroundColor: backgroundColor,
+
+      // ================= APPBAR =================
+
       appBar: AppBar(
-        title: const Text('إضافة منشور'),
-        backgroundColor: TColors.primary,
-        foregroundColor: TColors.white,
+        elevation: 0,
         centerTitle: true,
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+
+        title: const Text(
+          'إضافة منشور',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF4FA8D8),
+                Color(0xFF72C6EF),
+              ],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+        ),
       ),
+
+      // ================= BODY =================
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(TSizes.md),
+        padding: const EdgeInsets.all(18),
+
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ إضافة صورة مع معاينة أفضل
+
+            // ================= MAIN CARD =================
+
             Container(
+              padding: const EdgeInsets.all(20),
+
               decoration: BoxDecoration(
-                color: fieldFillColor,
-                borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
-                border: Border.all(color: isDark ? Colors.white24 : TColors.grey, width: 1),
+                color: cardColor,
+                borderRadius:
+                BorderRadius.circular(28),
+
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                    Colors.black.withOpacity(
+                      0.05,
+                    ),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
+
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
+
                 children: [
+
+                  // ================= IMAGE =================
+
                   GestureDetector(
                     onTap: _pickImage,
-                    child: Container(
-                      height: 200,
+
+                    child: AnimatedContainer(
+                      duration: const Duration(
+                        milliseconds: 300,
+                      ),
+
+                      height: 220,
+                      width: double.infinity,
+
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
-                      ),
-                      child: _selectedImage != null
-                          ? ClipRRect(
-                        borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
-                        child: Image.file(
-                          _selectedImage!,
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
+                        borderRadius:
+                        BorderRadius.circular(
+                          24,
                         ),
-                      )
-                          : Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
-                          color: isDark ? TColors.dark : Colors.grey.shade100,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_photo_alternate,
-                              size: 50,
-                              color: isDark ? TColors.grey : TColors.darkGrey,
-                            ),
-                            const SizedBox(height: TSizes.sm),
-                            Text(
-                              'اضغط لإضافة صورة',
-                              style: TextStyle(
-                                color: isDark ? TColors.grey : TColors.darkGrey,
-                                fontSize: TSizes.fontSizeSm,
-                              ),
-                            ),
-                            Text(
-                              '(اختياري)',
-                              style: TextStyle(
-                                color: isDark ? TColors.grey : TColors.darkGrey,
-                                fontSize: TSizes.fontSizeSm - 2,
-                              ),
-                            ),
+
+                        gradient:
+                        _selectedImage == null
+                            ? LinearGradient(
+                          colors: isDark
+                              ? [
+                            const Color(
+                                0xFF2A2A2A),
+                            const Color(
+                                0xFF1E1E1E),
+                          ]
+                              : [
+                            const Color(
+                                0xFFF8FBFF),
+                            const Color(
+                                0xFFEAF4FB),
                           ],
+                        )
+                            : null,
+
+                        border: Border.all(
+                          color: const Color(
+                              0xFF4FA8D8)
+                              .withOpacity(0.15),
                         ),
                       ),
-                    ),
-                  ),
-                  if (_selectedImage != null)
-                    Padding(
-                      padding: const EdgeInsets.all(TSizes.xs),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+
+                      child: _selectedImage != null
+                          ? Stack(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.green, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            'تم اختيار الصورة',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: TSizes.fontSizeSm,
+
+                          ClipRRect(
+                            borderRadius:
+                            BorderRadius
+                                .circular(
+                              24,
+                            ),
+
+                            child: Image.file(
+                              _selectedImage!,
+                              width:
+                              double.infinity,
+                              height: 220,
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          const SizedBox(width: TSizes.sm),
-                          TextButton(
-                            onPressed: () => setState(() => _selectedImage = null),
-                            child: const Text('إزالة'),
+
+                          Positioned(
+                            top: 12,
+                            left: 12,
+
+                            child:
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedImage =
+                                  null;
+                                });
+                              },
+
+                              child: Container(
+                                padding:
+                                const EdgeInsets
+                                    .all(8),
+
+                                decoration:
+                                BoxDecoration(
+                                  color:
+                                  Colors.black54,
+                                  borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                    12,
+                                  ),
+                                ),
+
+                                child:
+                                const Icon(
+                                  Icons.close,
+                                  color:
+                                  Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                          : Column(
+                        mainAxisAlignment:
+                        MainAxisAlignment
+                            .center,
+
+                        children: [
+
+                          Container(
+                            padding:
+                            const EdgeInsets
+                                .all(18),
+
+                            decoration:
+                            BoxDecoration(
+                              color: const Color(
+                                  0xFF4FA8D8)
+                                  .withOpacity(
+                                0.1,
+                              ),
+                              shape:
+                              BoxShape.circle,
+                            ),
+
+                            child: const Icon(
+                              Icons
+                                  .add_photo_alternate,
+                              size: 45,
+                              color: Color(
+                                  0xFF4FA8D8),
+                            ),
+                          ),
+
+                          const SizedBox(
+                              height: 18),
+
+                          Text(
+                            'إضافة صورة',
+                            style: TextStyle(
+                              fontWeight:
+                              FontWeight
+                                  .bold,
+                              fontSize: 17,
+                              color: isDark
+                                  ? Colors.white
+                                  : Colors
+                                  .black87,
+                            ),
+                          ),
+
+                          const SizedBox(
+                              height: 6),
+
+                          Text(
+                            'PNG, JPG (اختياري)',
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors
+                                  .white60
+                                  : Colors
+                                  .black54,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ================= CATEGORY =================
+
+                  _buildSectionTitle(
+                    'نوع المنشور',
+                    isDark,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  _buildDropdownModern(
+                    isDark,
+                    fieldFillColor,
+                    textStyle,
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ================= TITLE =================
+
+                  _buildSectionTitle(
+                    'العنوان',
+                    isDark,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  _buildModernField(
+                    controller: _titleController,
+                    hint: 'أدخل العنوان',
+                    icon: Icons.title,
+                    isDark: isDark,
+                    fieldFillColor:
+                    fieldFillColor,
+                    textStyle: textStyle,
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ================= DESCRIPTION =================
+
+                  _buildSectionTitle(
+                    'الوصف',
+                    isDark,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  _buildModernField(
+                    controller:
+                    _descriptionController,
+                    hint: 'أدخل الوصف',
+                    icon:
+                    Icons.description_outlined,
+                    isDark: isDark,
+                    fieldFillColor:
+                    fieldFillColor,
+                    textStyle: textStyle,
+                    maxLines: 5,
+                  ),
+
+                  // ================= JOB =================
+
+                  if (_selectedCategory ==
+                      'job') ...[
+
+                    const SizedBox(height: 22),
+
+                    _buildSectionTitle(
+                      'الموقع',
+                      isDark,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildModernField(
+                      controller:
+                      _locationController,
+                      hint: 'أدخل الموقع',
+                      icon: Icons
+                          .location_on_outlined,
+                      isDark: isDark,
+                      fieldFillColor:
+                      fieldFillColor,
+                      textStyle: textStyle,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    _buildSectionTitle(
+                      'نوع الوظيفة',
+                      isDark,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildModernField(
+                      controller:
+                      _jobTypeController,
+                      hint:
+                      'دوام كامل / عن بعد',
+                      icon:
+                      Icons.work_outline,
+                      isDark: isDark,
+                      fieldFillColor:
+                      fieldFillColor,
+                      textStyle: textStyle,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    _buildSectionTitle(
+                      'تاريخ الانتهاء',
+                      isDark,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildModernField(
+                      controller:
+                      _deadlineController,
+                      hint: '2025-12-31',
+                      icon: Icons
+                          .calendar_month,
+                      isDark: isDark,
+                      fieldFillColor:
+                      fieldFillColor,
+                      textStyle: textStyle,
+                    ),
+                  ],
+
+                  // ================= PRODUCT =================
+
+                  if (_selectedCategory ==
+                      'product') ...[
+
+                    const SizedBox(height: 22),
+
+                    _buildSectionTitle(
+                      'السعر',
+                      isDark,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildModernField(
+                      controller:
+                      _priceController,
+                      hint: 'أدخل السعر',
+                      icon:
+                      Icons.attach_money,
+                      isDark: isDark,
+                      fieldFillColor:
+                      fieldFillColor,
+                      textStyle: textStyle,
+                      keyboardType:
+                      TextInputType.number,
+                    ),
+                  ],
+
+                  const SizedBox(height: 35),
+
+                  // ================= BUTTON =================
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 58,
+
+                    child: ElevatedButton(
+                      style:
+                      ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor:
+                        const Color(
+                          0xFF4FA8D8,
+                        ),
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(20),
+                        ),
+                      ),
+
+                      onPressed: _isLoading
+                          ? null
+                          : _submitPost,
+
+                      child: _isLoading
+                          ? const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child:
+                        CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color:
+                          Colors.white,
+                        ),
+                      )
+                          : const Text(
+                        'نشر المنشور',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight:
+                          FontWeight
+                              .bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: TSizes.md),
 
-            // النوع
-            Text('النوع', style: labelStyle),
-            const SizedBox(height: TSizes.sm),
-            Container(
-              decoration: BoxDecoration(
-                color: fieldFillColor,
-                borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-              ),
-              child: DropdownButtonFormField<String>(
-                dropdownColor: isDark ? TColors.darkerGrey : TColors.white,
-                value: _selectedCategory,
-                hint: Text('اختر النوع', style: TextStyle(color: isDark ? TColors.grey : Colors.grey)),
-                isExpanded: true,
-                style: textStyle,
-                items: const [
-                  DropdownMenuItem(value: 'job', child: Text('وظيفة')),
-                  DropdownMenuItem(value: 'product', child: Text('منتج')),
-                ],
-                onChanged: (value) => setState(() => _selectedCategory = value),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: TSizes.md, vertical: TSizes.md),
-                ),
-              ),
-            ),
-            const SizedBox(height: TSizes.md),
-
-            // العنوان
-            Text('العنوان', style: labelStyle),
-            const SizedBox(height: TSizes.sm),
-            TextField(
-              controller: _titleController,
-              textAlign: TextAlign.right,
-              style: textStyle,
-              decoration: InputDecoration(
-                hintText: 'أدخل العنوان',
-                hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                hintTextDirection: TextDirection.rtl,
-                filled: true,
-                fillColor: fieldFillColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: TSizes.md),
-
-            // الوصف
-            Text('الوصف', style: labelStyle),
-            const SizedBox(height: TSizes.sm),
-            TextField(
-              controller: _descriptionController,
-              textAlign: TextAlign.right,
-              maxLines: 4,
-              style: textStyle,
-              decoration: InputDecoration(
-                hintText: 'أدخل الوصف',
-                hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                hintTextDirection: TextDirection.rtl,
-                filled: true,
-                fillColor: fieldFillColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: TSizes.md),
-
-            // حقول إضافية للوظيفة
-            if (_selectedCategory == 'job') ...[
-              Text('الموقع', style: labelStyle),
-              const SizedBox(height: TSizes.sm),
-              TextField(
-                controller: _locationController,
-                textAlign: TextAlign.right,
-                style: textStyle,
-                decoration: InputDecoration(
-                  hintText: 'أدخل الموقع',
-                  hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                  filled: true,
-                  fillColor: fieldFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: TSizes.md),
-
-              Text('نوع الوظيفة', style: labelStyle),
-              const SizedBox(height: TSizes.sm),
-              TextField(
-                controller: _jobTypeController,
-                textAlign: TextAlign.right,
-                style: textStyle,
-                decoration: InputDecoration(
-                  hintText: 'مثال: دوام كامل، عن بعد',
-                  hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                  filled: true,
-                  fillColor: fieldFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: TSizes.md),
-
-              Text('تاريخ الانتهاء (اختياري)', style: labelStyle),
-              const SizedBox(height: TSizes.sm),
-              TextField(
-                controller: _deadlineController,
-                textAlign: TextAlign.right,
-                style: textStyle,
-                decoration: InputDecoration(
-                  hintText: 'مثال: 2025-12-31',
-                  hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                  filled: true,
-                  fillColor: fieldFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-
-            // السعر للمنتج
-            if (_selectedCategory == 'product') ...[
-              Text('السعر (ريال)', style: labelStyle),
-              const SizedBox(height: TSizes.sm),
-              TextField(
-                controller: _priceController,
-                textAlign: TextAlign.right,
-                keyboardType: TextInputType.number,
-                style: textStyle,
-                decoration: InputDecoration(
-                  hintText: 'أدخل السعر',
-                  hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
-                  hintTextDirection: TextDirection.rtl,
-                  prefixText: 'ر.س ',
-                  prefixStyle: TextStyle(color: isDark ? TColors.accent : TColors.primary),
-                  filled: true,
-                  fillColor: fieldFillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: TSizes.lg),
-
-            // زر النشر
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(TSizes.buttonRadius),
-                  ),
-                ),
-                onPressed: _isLoading ? null : _submitPost,
-                child: _isLoading
-                    ? const SizedBox(
-                  height: 25,
-                  width: 25,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: TColors.white),
-                )
-                    : const Text(
-                  'نشر',
-                  style: TextStyle(fontSize: TSizes.fontSizeMd, color: TColors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
+            const SizedBox(height: 25),
           ],
         ),
       ),
+    );
+  }
+
+  // ================= SECTION TITLE =================
+
+  Widget _buildSectionTitle(
+      String title,
+      bool isDark,
+      ) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color:
+        isDark ? Colors.white : Colors.black87,
+      ),
+    );
+  }
+
+  // ================= TEXT FIELD =================
+
+  Widget _buildModernField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    required bool isDark,
+    required Color fieldFillColor,
+    required TextStyle textStyle,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      textAlign: TextAlign.right,
+      style: textStyle,
+
+      decoration: InputDecoration(
+        hintText: hint,
+        hintTextDirection:
+        TextDirection.rtl,
+
+        prefixIcon: Icon(
+          icon,
+          color: const Color(0xFF4FA8D8),
+        ),
+
+        filled: true,
+        fillColor: fieldFillColor,
+
+        contentPadding:
+        const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
+
+        border: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color:
+            Colors.grey.withOpacity(0.08),
+          ),
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: const BorderSide(
+            color: Color(0xFF4FA8D8),
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================= DROPDOWN =================
+
+  Widget _buildDropdownModern(
+      bool isDark,
+      Color fieldFillColor,
+      TextStyle textStyle,
+      ) {
+    return DropdownButtonFormField<String>(
+      value: _selectedCategory,
+
+      dropdownColor: isDark
+          ? const Color(0xFF1E1E1E)
+          : Colors.white,
+
+      style: textStyle,
+
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: fieldFillColor,
+
+        contentPadding:
+        const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 5,
+        ),
+
+        border: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color:
+            Colors.grey.withOpacity(0.08),
+          ),
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(18),
+          borderSide: const BorderSide(
+            color: Color(0xFF4FA8D8),
+            width: 1.5,
+          ),
+        ),
+      ),
+
+      hint: Text(
+        'اختر النوع',
+        style: TextStyle(
+          color: isDark
+              ? Colors.white60
+              : Colors.black54,
+        ),
+      ),
+
+      items: const [
+
+        DropdownMenuItem(
+          value: 'job',
+          child: Text('وظيفة'),
+        ),
+
+        DropdownMenuItem(
+          value: 'product',
+          child: Text('منتج'),
+        ),
+      ],
+
+      onChanged: (value) {
+        setState(() {
+          _selectedCategory = value;
+        });
+      },
     );
   }
 }

@@ -9,7 +9,7 @@ class AdvertisementJob {
   final String? commentId;
   final String nameJob;
   final String? description;
-  final String? image;
+  final String? imageId;
   final String? location;
   final String? jobType;
   final String status;
@@ -26,7 +26,7 @@ class AdvertisementJob {
     this.commentId,
     required this.nameJob,
     this.description,
-    this.image,
+    this.imageId,
     this.location,
     this.jobType,
     required this.status,
@@ -46,7 +46,7 @@ class AdvertisementJob {
       commentId: data['commentId'],
       nameJob: data['nameJob'] ?? '',
       description: data['description'],
-      image: data['image'],
+      imageId: data['image'],
       location: data['location'],
       jobType: data['jobType'],
       status: data['status'] ?? 'open',
@@ -65,7 +65,7 @@ class AdvertisementJob {
       'commentId': commentId,
       'nameJob': nameJob,
       'description': description,
-      'image': image,
+      'image': imageId,
       'location': location,
       'jobType': jobType,
       'status': status,

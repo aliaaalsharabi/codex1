@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:codex_firebase/views/Edit_Profile_screen.dart';
 import 'package:codex_firebase/views/Login_View.dart';
+import 'package:codex_firebase/views/home_screen.dart';
 import 'package:codex_firebase/modelview/user_vm.dart';
-import 'package:codex_firebase/modelview/theme_vm.dart'; // ✅ أضفت ملف الثيم
+import 'package:codex_firebase/modelview/theme_vm.dart';
 import 'package:codex_firebase/constants/colors.dart';
 import 'package:codex_firebase/constants/sizes.dart';
 
@@ -26,38 +27,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUser() async {
     final userVm = Provider.of<User_Vm>(context, listen: false);
     await userVm.fetchCurrentUser();
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _handleLogout(bool isDark) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDark ? TColors.darkerGrey : TColors.white, // ✅ لون الخلفية
-        title: Text('تسجيل الخروج', style: TextStyle(color: isDark ? TColors.white : TColors.black)),
-        content: Text('هل أنت متأكد من رغبتك في تسجيل الخروج؟', style: TextStyle(color: isDark ? TColors.grey : TColors.darkGrey)),
+        backgroundColor: isDark ? TColors.darkerGrey : TColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text('تسجيل الخروج', textAlign: TextAlign.right),
+        content: const Text('هل أنت متأكد؟', textAlign: TextAlign.right),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('إلغاء', style: TextStyle(color: isDark ? TColors.grey : TColors.darkGrey)),
+            child: const Text('إلغاء'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('تسجيل الخروج', style: TextStyle(color: TColors.error)),
+            child: const Text(
+              'خروج',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      final userVm = Provider.of<User_Vm>(context, listen: false);
-      await userVm.logout();
+      await Provider.of<User_Vm>(context, listen: false).logout();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
               (route) => false,
         );
       }
@@ -66,99 +70,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ مراقبة حالة الثيم
     final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? TColors.dark : TColors.white, // ✅ لون الخلفية الأساسي
+      backgroundColor: isDark ? TColors.dark : const Color(0xFFF7FAFC),
+
+      // ⭐ زر Home العائم (حل مشكلتك)
+      floatingActionButton: FloatingActionButton(
+        heroTag: "home_btn",
+        backgroundColor: const Color(0xFF5DB1DF),
+        mini: true,
+        onPressed: () {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+          );
+        },
+        child: const Icon(Icons.home, color: Colors.white),
+      ),
+
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: TColors.primary))
+          ? const Center(child: CircularProgressIndicator())
           : Consumer<User_Vm>(
         builder: (context, vm, child) {
           final user = vm.currentUser;
-          return Column(
+
+          return Stack(
             children: [
-              // الحاوية العلوية (Header)
-              Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  // ✅ جعل اللون أغمق قليلاً في الوضع الليلي
-                  color: isDark ? const Color(0xFF1F4E68) : const Color(0xFF5DB1DF),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(TSizes.cardRaduisLg),
-                    bottomRight: Radius.circular(TSizes.cardRaduisLg),
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: TSizes.md),
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: isDark ? TColors.darkerGrey : TColors.white,
-                      child: Icon(
-                        Icons.person,
-                        size: 60,
-                        color: isDark ? TColors.grey : Colors.grey[400],
-                      ),
-                    ),
-                    const SizedBox(height: TSizes.sm),
-                    Text(
-                      user?.name ?? 'اسم المستخدم',
-                      style: const TextStyle(
-                        color: TColors.white,
-                        fontSize: TSizes.fontSizeLg,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (user?.email != null)
-                      Text(
-                        user!.email,
-                        style: TextStyle(
-                          color: TColors.white.withOpacity(0.7),
-                          fontSize: TSizes.fontSizeSm,
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: 280,
+                    pinned: true,
+                    backgroundColor: const Color(0xFF5DB1DF),
+                    automaticallyImplyLeading: false,
+                    flexibleSpace: FlexibleSpaceBar(
+                      background: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color(0xFF5DB1DF),
+                              Color(0xFF429EBD),
+                            ],
+                          ),
+                        ),
+                        child: SafeArea(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 45,
+                                backgroundColor: Colors.white,
+                                child: Icon(Icons.person,
+                                    size: 55,
+                                    color: Colors.grey[400]),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                user?.name ?? "اسم المستخدم",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              if (user?.email != null)
+                                Text(
+                                  user!.email,
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                  ),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _cardItem(
+                            title: "تعديل الملف الشخصي",
+                            icon: Icons.edit,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                  const EditProfileScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _cardItem(
+                            title: "عناويني",
+                            icon: Icons.location_on,
+                          ),
+                          _cardItem(
+                            title: "طلباتي",
+                            icon: Icons.shopping_bag,
+                          ),
+                          _cardItem(
+                            title: "الإعدادات",
+                            icon: Icons.settings,
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          _cardItem(
+                            title: "تسجيل الخروج",
+                            icon: Icons.logout,
+                            color: Colors.red,
+                            onTap: () => _handleLogout(isDark),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
-              // قائمة الخيارات
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(TSizes.md),
-                  children: [
-                    _buildProfileOption(
-                        'تعديل الملف الشخصي',
-                        Icons.edit,
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const EditProfileScreen(),
-                            ),
-                          );
-                        }
-                    ),
-                    _buildProfileOption('عناويني', Icons.location_on, isDark: isDark),
-                    _buildProfileOption('طلباتي', Icons.shopping_bag, isDark: isDark),
-                    _buildProfileOption('الإعدادات', Icons.settings, isDark: isDark),
-
-                    Divider(
-                        height: TSizes.spaceBtwSections,
-                        color: isDark ? Colors.white10 : Colors.grey[200]
-                    ),
-
-                    _buildProfileOption(
-                      'تسجيل الخروج',
-                      Icons.logout,
-                      isDark: isDark,
-                      textColor: TColors.error,
-                      onTap: () => _handleLogout(isDark),
-                    ),
-                  ],
+              // ⭐ زر Home العلوي (اللي طلبته فوق الشاشة)
+              Positioned(
+                top: 50,
+                right: 15,
+                child: SafeArea(
+                  child: FloatingActionButton(
+                    heroTag: "top_home",
+                    mini: true,
+                    backgroundColor: Colors.white,
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const HomeScreen()),
+                            (route) => false,
+                      );
+                    },
+                    child: const Icon(Icons.home,
+                        color: Color(0xFF5DB1DF)),
+                  ),
                 ),
               ),
             ],
@@ -168,40 +226,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ✅ تعديل ودجت الخيارات لتدعم الثيم
-  Widget _buildProfileOption(
-      String title,
-      IconData icon,
-      {required bool isDark, VoidCallback? onTap, Color? textColor}) {
-
+  Widget _cardItem({
+    required String title,
+    required IconData icon,
+    VoidCallback? onTap,
+    Color? color,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: TSizes.spaceBtwItems),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        // ✅ تغيير لون خلفية الخيار
-        color: isDark ? TColors.darkerGrey : const Color(0xFFF0F7FA),
-        borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
-        border: isDark ? Border.all(color: Colors.white10) : null,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          ),
+        ],
       ),
       child: ListTile(
-        leading: Icon(
-            icon,
-            color: isDark ? TColors.accent : const Color(0xFF429EBD)
-        ),
+        onTap: onTap,
+        leading: Icon(icon, color: color ?? const Color(0xFF5DB1DF)),
         title: Text(
           title,
           textAlign: TextAlign.right,
           style: TextStyle(
-            fontWeight: FontWeight.w500,
-            // ✅ تغيير لون النص
-            color: textColor ?? (isDark ? TColors.white : TColors.textprimary),
+            fontWeight: FontWeight.bold,
+            color: color ?? Colors.black,
           ),
         ),
-        trailing: Icon(
-            Icons.arrow_forward_ios,
-            size: 16,
-            color: isDark ? TColors.grey : TColors.darkGrey
-        ),
-        onTap: onTap,
+        trailing: const Icon(Icons.arrow_back_ios, size: 16),
       ),
     );
   }

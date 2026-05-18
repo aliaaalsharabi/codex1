@@ -6,7 +6,7 @@ class Product {
   final String userId;
   final double price;
   final String name;
-  final String? image;
+  final String? imageId;
   final String? description;
   final int stockQuantity;
   final String status;
@@ -19,7 +19,7 @@ class Product {
     required this.userId,
     required this.price,
     required this.name,
-    this.image,
+    this.imageId,
     this.description,
     required this.stockQuantity,
     required this.status,
@@ -35,7 +35,7 @@ class Product {
       userId: data['userId'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
       name: data['name'] ?? '',
-      image: data['image'],
+      imageId: data['image'],
       description: data['description'],
       stockQuantity: data['stockQuantity'] ?? 0,
       status: data['status'] ?? 'available',
@@ -50,7 +50,7 @@ class Product {
       'userId': userId,
       'price': price,
       'name': name,
-      'image': image,
+      'image': imageId,
       'description': description,
       'stockQuantity': stockQuantity,
       'status': status,

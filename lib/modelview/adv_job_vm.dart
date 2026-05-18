@@ -19,7 +19,7 @@ class Advertisement_of_jop_Vm extends BaseVM {
           commentId: data['commentId'],
           nameJob: data['nameJob'] ?? '',
           description: data['description'],
-          image: data['image'],
+          imageId: data['image'],
           location: data['location'],
           jobType: data['jobType'],
           status: data['status'] ?? 'open',
