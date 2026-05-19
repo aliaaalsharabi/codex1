@@ -9,6 +9,9 @@ import 'package:codex_firebase/services/appwrite_storage_service.dart';
 import 'package:codex_firebase/views/Splash_Screen.dart';
 import 'package:codex_firebase/views/no_internet_widget.dart';
 
+// ✅ استيراد الـ ViewModel الخاص بالـ AI لحل مشكلة الـ ProviderNotFoundException
+import 'package:codex_firebase/modelview/db_ai_vm.dart';
+
 late final AppwriteStorageService appwriteStorageService;
 
 void main() async {
@@ -33,6 +36,9 @@ class CodexApp extends StatelessWidget {
         ...AppProviders.providers,
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
         Provider<AppwriteStorageService>.value(value: appwriteStorageService),
+
+        // ✅ إضافة البروفايدرز الخاص بالـ AI هنا ليتعرف عليه التطبيق في كل الشاشات
+        ChangeNotifierProvider(create: (_) => DB_AI_Vm()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

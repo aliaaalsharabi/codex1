@@ -23,7 +23,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<AdvertisementJob>> _jobsFuture;
+  // ✅ تعديل: جعل الـ Future يقبل الـ null وتجنب late لمنع الانهيار
+  Future<List<AdvertisementJob>>? _jobsFuture;
   bool _isConnected = true;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -31,27 +32,31 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   void _loadData() {
     final connectivity = Provider.of<ConnectivityService>(context, listen: false);
     _isConnected = connectivity.isConnected;
     if (_isConnected) {
-      _jobsFuture = context.read<Advertisement_of_jop_Vm>().getAllJobs();
+      setState(() {
+        _jobsFuture = context.read<Advertisement_of_jop_Vm>().getAllJobs();
+      });
+    } else {
+      setState(() {
+        _jobsFuture = Future.value([]); // ✅ إرجاع قائمة فارغة آمنة عند عدم وجود اتصال
+      });
     }
   }
 
   void _retryLoad() {
-    setState(() {
-      _loadData();
-    });
+    _loadData();
   }
 
   void _refreshData() {
-    setState(() {
-      _loadData();
-    });
+    _loadData();
   }
 
   Future<void> _addSampleData() async {
@@ -70,7 +75,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ وظيفة الإعجاب (الضغطة الأولى أحمر، الثانية رمادي)
   Future<void> _toggleLike(AdvertisementJob job) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
@@ -79,24 +83,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final isLiked = job.likes?.contains(userId) ?? false;
 
     if (isLiked) {
-      // ✅ إزالة الإعجاب (الضغطة الثانية)
       await jobRef.update({
         'likes': FieldValue.arrayRemove([userId]),
         'numberOfLike': FieldValue.increment(-1),
       });
     } else {
-      // ✅ إضافة إعجاب (الضغطة الأولى)
       await jobRef.update({
         'likes': FieldValue.arrayUnion([userId]),
         'numberOfLike': FieldValue.increment(1),
       });
     }
 
-    // ✅ تحديث البيانات بعد تغيير حالة الإعجاب
     _refreshData();
   }
 
-  // ✅ دالة مساعدة للحصول على رابط الصورة من Appwrite
   String _getImageUrl(String? imageId) {
     if (imageId == null || imageId.isEmpty) return '';
     final storageService = Provider.of<AppwriteStorageService>(context, listen: false);
@@ -111,10 +111,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (connectivity.isConnected != _isConnected) {
       _isConnected = connectivity.isConnected;
-      if (_isConnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadData();
-      }
-      setState(() {});
+      });
     }
 
     return Scaffold(
@@ -284,8 +283,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       delegate: SliverChildBuilderDelegate(
                             (context, index) {
                           final job = jobs[index];
-
-                          // ✅ الحصول على رابط الصورة من Appwrite باستخدام imageId
                           final imageUrl = _getImageUrl(job.imageId);
 
                           return Container(
@@ -298,7 +295,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // ✅ الصورة من Appwrite
                                 if (imageUrl.isNotEmpty)
                                   ClipRRect(
                                     borderRadius: const BorderRadius.only(
@@ -311,7 +307,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                       errorBuilder: (context, error, stackTrace) {
-                                        print('❌ خطأ في تحميل الصورة من Appwrite: $error');
                                         return Container(
                                           height: 200,
                                           color: isDark ? Colors.black26 : TColors.grey,
@@ -432,21 +427,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       const SizedBox(height: TSizes.md),
 
-                                      // ✅ أزرار التفاعل (الإعجاب - التعليق - المشاركة)
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                                         children: [
-                                          // ✅ زر الإعجاب (يغير اللون والعدد)
                                           InkWell(
                                             onTap: () => _toggleLike(job),
                                             child: Row(
                                               children: [
                                                 Icon(
                                                   job.isLikedByCurrentUser
-                                                      ? Icons.favorite      // أحمر عند الإعجاب
-                                                      : Icons.favorite_border, // رمادي عند عدم الإعجاب
+                                                      ? Icons.favorite
+                                                      : Icons.favorite_border,
                                                   color: job.isLikedByCurrentUser
-                                                      ? Colors.red          // ✅ اللون الأحمر
+                                                      ? Colors.red
                                                       : (isDark ? TColors.grey : TColors.darkGrey),
                                                   size: 24,
                                                 ),
@@ -460,8 +453,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ],
                                             ),
                                           ),
-
-                                          // ✅ زر التعليق
                                           InkWell(
                                             onTap: () {
                                               Navigator.push(
@@ -490,8 +481,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ],
                                             ),
                                           ),
-
-                                          // ✅ زر المشاركة
                                           InkWell(
                                             onTap: () {},
                                             child: Icon(
