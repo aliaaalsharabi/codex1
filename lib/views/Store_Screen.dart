@@ -20,10 +20,7 @@ class StoreScreen extends StatefulWidget {
 
 class _StoreScreenState extends State<StoreScreen> {
   late Future<List<Product>> _productsFuture;
-
-  final TextEditingController _searchController =
-  TextEditingController();
-
+  final TextEditingController _searchController = TextEditingController();
   bool _isConnected = true;
 
   @override
@@ -33,17 +30,10 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   void _loadData() {
-    final connectivity =
-    Provider.of<ConnectivityService>(
-      context,
-      listen: false,
-    );
-
+    final connectivity = Provider.of<ConnectivityService>(context, listen: false);
     _isConnected = connectivity.isConnected;
-
     if (_isConnected) {
-      _productsFuture =
-          context.read<Prodect_Vm>().fetchAllProducts();
+      _productsFuture = context.read<Prodect_Vm>().fetchAllProducts();
     }
   }
 
@@ -53,624 +43,219 @@ class _StoreScreenState extends State<StoreScreen> {
     });
   }
 
-  // ✅ جلب رابط الصورة من Appwrite
+  // ✅ دالة مساعدة للحصول على رابط الصورة من Appwrite
   String _getImageUrl(String? imageId) {
     if (imageId == null || imageId.isEmpty) return '';
-
-    final storageService =
-    Provider.of<AppwriteStorageService>(
-      context,
-      listen: false,
-    );
-
+    final storageService = Provider.of<AppwriteStorageService>(context, listen: false);
     return storageService.getImageUrl(imageId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        Provider.of<Theme_Vm>(context).isDarkMode;
+    final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
+    final connectivity = Provider.of<ConnectivityService>(context);
+    final primaryBlue = const Color(0xFF5DB1DF);
 
-    final connectivity =
-    Provider.of<ConnectivityService>(context);
-
-    const primaryBlue = Color(0xFF5DB1DF);
-
-    // تحديث حالة الإنترنت
+    // مراقبة تغيير حالة الإنترنت
     if (connectivity.isConnected != _isConnected) {
       _isConnected = connectivity.isConnected;
-
       if (_isConnected) {
         _loadData();
       }
-
       setState(() {});
     }
 
     return Scaffold(
-      backgroundColor:
-      isDark ? TColors.dark : const Color(0xFFF7FAFC),
-
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'cart_fab',
-        backgroundColor: primaryBlue,
-        elevation: 8,
-        onPressed: _isConnected
-            ? () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-              const CartScreen(),
-            ),
-          );
-        }
-            : null,
-        icon: const Icon(
-          Icons.shopping_cart_outlined,
-          color: Colors.white,
-        ),
-        label: const Text(
-          'السلة',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-
-      body: SafeArea(
-        child: Column(
-          children: [
-            // HEADER
-            Container(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                24,
-              ),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF5DB1DF),
-                    Color(0xFF429EBD),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      backgroundColor: isDark ? TColors.dark : TColors.white,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(TSizes.md),
+                child: TextField(
+                  controller: _searchController,
+                  enabled: _isConnected,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: isDark ? TColors.white : TColors.black),
+                  decoration: InputDecoration(
+                    hintText: _isConnected ? 'بحث عن قطعة' : 'لا يوجد اتصال بالإنترنت',
+                    hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
+                    prefixIcon: Icon(Icons.search, color: primaryBlue),
+                    filled: true,
+                    fillColor: isDark ? TColors.darkerGrey : const Color(0xFFF0F7FA),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
-                borderRadius:
-                const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryBlue.withOpacity(0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
 
-                  const Text(
-                    'المتجر التقني',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    'اكتشف أفضل القطع والأدوات التقنية',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // SEARCH
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                      BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black
-                              .withOpacity(0.05),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      enabled: _isConnected,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: isDark
-                            ? TColors.black
-                            : TColors.black,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: _isConnected
-                            ? 'ابحث عن قطعة تقنية...'
-                            : 'لا يوجد اتصال بالإنترنت',
-
-                        hintStyle: const TextStyle(
-                          color: Colors.grey,
-                        ),
-
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: primaryBlue,
-                        ),
-
-                        suffixIcon: Container(
-                          margin: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color:
-                            primaryBlue.withOpacity(0.1),
-                            borderRadius:
-                            BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.tune,
-                            color: primaryBlue,
-                            size: 20,
-                          ),
-                        ),
-
-                        filled: true,
-                        fillColor: Colors.white,
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-
-                        enabledBorder:
-                        OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.circular(20),
-                          borderSide:
-                          BorderSide.none,
-                        ),
-
-                        focusedBorder:
-                        OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.circular(20),
-                          borderSide:
-                          const BorderSide(
-                            color: primaryBlue,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            // BODY
-            Expanded(
-              child: !_isConnected
-                  ? const NoInternetWidget()
-                  : FutureBuilder<List<Product>>(
-                future: _productsFuture,
-                builder:
-                    (context, snapshot) {
-                  if (snapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(
-                      child:
-                      CircularProgressIndicator(
-                        color: primaryBlue,
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.all(
-                            20),
+              Expanded(
+                child: !_isConnected
+                    ? const NoInternetWidget()
+                    : FutureBuilder<List<Product>>(
+                  future: _productsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFF5DB1DF)));
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
                         child: Column(
-                          mainAxisAlignment:
-                          MainAxisAlignment
-                              .center,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 70,
-                              color: isDark
-                                  ? TColors.grey
-                                  : Colors.grey,
-                            ),
-
-                            const SizedBox(
-                                height: 16),
-
                             Text(
-                              'حدث خطأ أثناء تحميل المنتجات',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight:
-                                FontWeight
-                                    .bold,
-                                color: isDark
-                                    ? TColors
-                                    .white
-                                    : TColors
-                                    .black,
-                              ),
+                              'حدث خطأ: ${snapshot.error}',
+                              style: TextStyle(color: isDark ? TColors.white : TColors.black),
                             ),
-
-                            const SizedBox(
-                                height: 10),
-
-                            Text(
-                              '${snapshot.error}',
-                              textAlign:
-                              TextAlign.center,
-                              style: TextStyle(
-                                color: isDark
-                                    ? TColors
-                                    .grey
-                                    : Colors.grey,
-                              ),
-                            ),
-
-                            const SizedBox(
-                                height: 20),
-
+                            const SizedBox(height: TSizes.md),
                             ElevatedButton(
-                              style:
-                              ElevatedButton
-                                  .styleFrom(
-                                backgroundColor:
-                                primaryBlue,
-                                shape:
-                                RoundedRectangleBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(
-                                      14),
-                                ),
-                              ),
-                              onPressed:
-                              _retryLoad,
-                              child: const Text(
-                                'إعادة المحاولة',
-                                style: TextStyle(
-                                  color: Colors
-                                      .white,
-                                ),
-                              ),
+                              onPressed: _retryLoad,
+                              child: const Text('إعادة المحاولة'),
                             ),
                           ],
                         ),
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'لا توجد منتجات حالياً',
+                          style: TextStyle(color: isDark ? TColors.grey : Colors.black54),
+                        ),
+                      );
+                    }
+
+                    final products = snapshot.data!;
+                    return GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: TSizes.sm),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: TSizes.sm,
+                        mainAxisSpacing: TSizes.sm,
                       ),
-                    );
-                  }
+                      itemCount: products.length,
+                      itemBuilder: (context, index) {
+                        final product = products[index];
 
-                  if (!snapshot.hasData ||
-                      snapshot.data!.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
-                        children: [
-                          Icon(
-                            Icons
-                                .shopping_bag_outlined,
-                            size: 80,
-                            color: isDark
-                                ? TColors.grey
-                                : Colors.grey,
-                          ),
+                        // ✅ الحصول على رابط الصورة من Appwrite باستخدام imageId
+                        final imageUrl = _getImageUrl(product.imageId);
 
-                          const SizedBox(
-                              height: 20),
-
-                          Text(
-                            'لا توجد منتجات حالياً',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                              FontWeight.bold,
-                              color: isDark
-                                  ? TColors.white
-                                  : Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final products =
-                  snapshot.data!;
-
-                  return GridView.builder(
-                    padding:
-                    const EdgeInsets.all(
-                        16),
-
-                    gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.68,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-
-                    itemCount:
-                    products.length,
-
-                    itemBuilder:
-                        (context, index) {
-                      final product =
-                      products[index];
-
-                      final imageUrl =
-                      _getImageUrl(
-                          product.imageId);
-
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                  ProductDetailsScreen(
-                                    productId:
-                                    product.id,
-                                  ),
-                            ),
-                          );
-                        },
-
-                        child: AnimatedContainer(
-                          duration:
-                          const Duration(
-                              milliseconds:
-                              250),
-
-                          decoration:
-                          BoxDecoration(
-                            color: isDark
-                                ? TColors
-                                .darkerGrey
-                                : Colors.white,
-
-                            borderRadius:
-                            BorderRadius
-                                .circular(
-                                24),
-
-                            border: isDark
-                                ? Border.all(
-                              color: Colors
-                                  .white10,
-                            )
-                                : null,
-
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors
-                                    .black
-                                    .withOpacity(
-                                    0.05),
-                                blurRadius:
-                                14,
-                                offset:
-                                const Offset(
-                                    0, 6),
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProductDetailsScreen(productId: product.id),
                               ),
-                            ],
-                          ),
-
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-
-                            children: [
-                              // IMAGE
-                              Expanded(
-                                flex: 6,
-                                child: Container(
-                                  decoration:
-                                  BoxDecoration(
-                                    borderRadius:
-                                    const BorderRadius.vertical(
-                                      top: Radius
-                                          .circular(
-                                          24),
-                                    ),
-                                    color: isDark
-                                        ? Colors
-                                        .black26
-                                        : const Color(
-                                        0xFFF5F7FA),
-                                  ),
-
-                                  child: imageUrl
-                                      .isNotEmpty
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? TColors.darkerGrey : const Color(0xFFF0F7FA),
+                              borderRadius: BorderRadius.circular(TSizes.cardRaduisMd),
+                              border: isDark ? Border.all(color: Colors.white10) : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ✅ صورة المنتج من Appwrite
+                                Expanded(
+                                  child: imageUrl.isNotEmpty
                                       ? ClipRRect(
-                                    borderRadius:
-                                    const BorderRadius.vertical(
-                                      top: Radius.circular(
-                                          24),
-                                    ),
-                                    child:
-                                    Image.network(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(TSizes.cardRaduisMd)),
+                                    child: Image.network(
                                       imageUrl,
-                                      width: double
-                                          .infinity,
-                                      fit: BoxFit
-                                          .cover,
-
-                                      errorBuilder:
-                                          (
-                                          context,
-                                          error,
-                                          stackTrace,
-                                          ) {
-                                        return Center(
-                                          child:
-                                          Icon(
-                                            Icons.broken_image_outlined,
-                                            size:
-                                            50,
-                                            color: isDark
-                                                ? TColors.grey
-                                                : Colors.grey,
-                                          ),
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        print('❌ خطأ في تحميل صورة المنتج من Appwrite: $error');
+                                        return Container(
+                                          color: isDark ? Colors.black26 : TColors.grey,
+                                          child: const Icon(Icons.broken_image, color: TColors.grey),
                                         );
                                       },
                                     ),
                                   )
-                                      : Center(
-                                    child:
-                                    Column(
-                                      mainAxisAlignment:
-                                      MainAxisAlignment.center,
+                                      : Container(
+                                    color: isDark ? Colors.black26 : TColors.grey,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          Icons.image_not_supported_outlined,
-                                          size:
-                                          50,
-                                          color: isDark
-                                              ? TColors.grey
-                                              : Colors.grey,
+                                          Icons.image_not_supported,
+                                          size: 40,
+                                          color: isDark ? TColors.grey : Colors.white70,
                                         ),
-                                        const SizedBox(
-                                            height:
-                                            8),
+                                        const SizedBox(height: TSizes.xs),
                                         Text(
                                           'لا توجد صورة',
-                                          style:
-                                          TextStyle(
-                                            color: isDark
-                                                ? TColors.grey
-                                                : Colors.grey,
+                                          style: TextStyle(
+                                            fontSize: TSizes.fontSizeSm,
+                                            color: isDark ? TColors.grey : Colors.white70,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
-                              ),
-
-                              // INFO
-                              Expanded(
-                                flex: 3,
-                                child: Padding(
-                                  padding:
-                                  const EdgeInsets.all(
-                                      14),
-                                  child:
-                                  Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                Padding(
+                                  padding: const EdgeInsets.all(TSizes.sm),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        product
-                                            .name,
-                                        maxLines:
-                                        2,
-                                        overflow:
-                                        TextOverflow.ellipsis,
-                                        style:
-                                        TextStyle(
-                                          fontSize:
-                                          15,
-                                          fontWeight:
-                                          FontWeight.bold,
-                                          color: isDark
-                                              ? TColors.white
-                                              : Colors.black87,
+                                        product.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? TColors.white : TColors.black,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child:
-                                            Text(
-                                              '${product.price} ر.س',
-                                              style:
-                                              const TextStyle(
-                                                color:
-                                                primaryBlue,
-                                                fontWeight:
-                                                FontWeight.bold,
-                                                fontSize:
-                                                16,
-                                              ),
-                                            ),
-                                          ),
-
-                                          Container(
-                                            padding:
-                                            const EdgeInsets.all(
-                                                8),
-                                            decoration:
-                                            BoxDecoration(
-                                              color:
-                                              primaryBlue,
-                                              borderRadius:
-                                              BorderRadius.circular(
-                                                  12),
-                                            ),
-                                            child:
-                                            const Icon(
-                                              Icons
-                                                  .add_shopping_cart,
-                                              size:
-                                              18,
-                                              color:
-                                              Colors.white,
-                                            ),
-                                          ),
-                                        ],
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${product.price} ر.س',
+                                        style: TextStyle(
+                                          color: isDark ? TColors.accent : const Color(0xFF429EBD),
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
+            ],
+          ),
+          Positioned(
+            bottom: 20,
+            left: 20,
+            child: FloatingActionButton(
+              heroTag: 'cart_fab',
+              backgroundColor: primaryBlue,
+              onPressed: _isConnected
+                  ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CartScreen()),
+                );
+              }
+                  : null,
+              child: const Icon(Icons.shopping_cart, color: TColors.white),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -76,19 +76,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: isDark ? TColors.dark : const Color(0xFFF7FAFC),
 
       // ⭐ زر Home العائم (حل مشكلتك)
-      floatingActionButton: FloatingActionButton(
-        heroTag: "home_btn",
-        backgroundColor: const Color(0xFF5DB1DF),
-        mini: true,
-        onPressed: () {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-          );
-        },
-        child: const Icon(Icons.home, color: Colors.white),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   heroTag: "home_btn",
+      //   backgroundColor: const Color(0xFF5DB1DF),
+      //   mini: true,
+      //   onPressed: () {
+      //     Navigator.pushAndRemoveUntil(
+      //       context,
+      //       MaterialPageRoute(builder: (_) => const HomeScreen()),
+      //           (route) => false,
+      //     );
+      //   },
+      //   child: const Icon(Icons.home, color: Colors.white),
+      // ),
 
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

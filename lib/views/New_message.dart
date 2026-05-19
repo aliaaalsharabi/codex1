@@ -17,297 +17,117 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // التحكم في الحالة: هل نعرض نموذج الإنشاء أم قائمة جهات الاتصال؟
   bool _showContacts = false;
 
+  // وحدات التحكم للنموذج
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController =
-  TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
-
-    const Color primaryBlue = Color(0xFF5DB1DF);
-
-    final Color backgroundColor =
-    isDark ? const Color(0xFF0F172A) : const Color(0xFFF6FBFF);
-
-    final Color cardColor =
-    isDark ? const Color(0xFF1E293B) : Colors.white;
-
-    final Color fieldColor =
-    isDark ? const Color(0xFF0F172A) : const Color(0xFFF3F8FC);
+    final primaryBlue = const Color(0xFF5DB1DF);
+    final cardColor = isDark ? TColors.darkerGrey : const Color(0xFFF0F7FA);
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-
-      // ================= APP BAR =================
+      backgroundColor: isDark ? TColors.dark : TColors.white,
       appBar: AppBar(
-        backgroundColor: backgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDark ? TColors.white : TColors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-
         title: Text(
           'رسالة جديدة',
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: TextStyle(color: isDark ? TColors.white : TColors.black, fontWeight: FontWeight.bold),
         ),
-
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () =>
-                  setState(() => _showContacts = !_showContacts),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: primaryBlue.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _showContacts
-                          ? Icons.edit_note_rounded
-                          : Icons.group_rounded,
-                      size: 18,
-                      color: primaryBlue,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _showContacts
-                          ? 'إنشاء استشارة'
-                          : 'جهات الاتصال',
-                      style: const TextStyle(
-                        color: primaryBlue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          // زر التبديل لجهات الاتصال كما في الصورة
+          TextButton.icon(
+            onPressed: () => setState(() => _showContacts = !_showContacts),
+            icon: Icon(Icons.group_outlined, size: 20, color: primaryBlue),
+            label: Text(
+              _showContacts ? 'إنشاء استشارة' : 'جهات الاتصال',
+              style: TextStyle(color: primaryBlue),
             ),
           ),
         ],
       ),
-
-      // ================= BODY =================
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child: _showContacts
-            ? _buildContactsList(
-          isDark,
-          cardColor,
-          fieldColor,
-          primaryBlue,
-        )
-            : _buildCreateConsultationForm(
-          isDark,
-          cardColor,
-          fieldColor,
-          primaryBlue,
+        child: _showContacts ? _buildContactsList(isDark, cardColor, primaryBlue) : _buildCreateConsultationForm(isDark, cardColor, primaryBlue),
+      ),
+    );
+  }
+
+  // الواجهة الأولى: إنشاء استشارة جديدة (مطابقة للصورة Screenshot_20260512-234347)
+  Widget _buildCreateConsultationForm(bool isDark, Color cardColor, Color primaryBlue) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(TSizes.md),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'إنشاء استشارة جديدة',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryBlue),
+            ),
+            const SizedBox(height: 30),
+
+            // حقل عنوان الاستشارة
+            _buildLabel('عنوان الاستشارة', Icons.title_rounded),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _titleController,
+              textAlign: TextAlign.right,
+              decoration: _inputDecoration(isDark),
+            ),
+
+            const SizedBox(height: 25),
+
+            // حقل وصف الاستشارة
+            _buildLabel('وصف الاستشارة', Icons.description_outlined),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _descriptionController,
+              textAlign: TextAlign.right,
+              maxLines: 5,
+              decoration: _inputDecoration(isDark),
+            ),
+
+            const SizedBox(height: 40),
+
+            // زر الإنشاء
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // منطق حفظ الاستشارة في Firebase
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: const Text('إنشاء', style: TextStyle(fontSize: 18, color: Colors.white)),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ================= CREATE CONSULTATION =================
-
-  Widget _buildCreateConsultationForm(
-      bool isDark,
-      Color cardColor,
-      Color fieldColor,
-      Color primaryBlue,
-      ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(TSizes.md),
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-
-          // HEADER CARD
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  primaryBlue,
-                  primaryBlue.withOpacity(0.8),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryBlue.withOpacity(0.25),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: const [
-                CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Colors.white24,
-                  child: Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: Colors.white,
-                    size: 35,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'إنشاء استشارة جديدة',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'اكتب تفاصيل استشارتك ليتمكن المستشار من مساعدتك',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 30),
-
-          // FORM CARD
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildLabel(
-                  'عنوان الاستشارة',
-                  Icons.title_rounded,
-                  isDark,
-                ),
-
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: _titleController,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  decoration: _inputDecoration(
-                    isDark,
-                    fieldColor,
-                    'اكتب عنوان الاستشارة',
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                _buildLabel(
-                  'وصف الاستشارة',
-                  Icons.description_rounded,
-                  isDark,
-                ),
-
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: _descriptionController,
-                  textAlign: TextAlign.right,
-                  maxLines: 6,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  decoration: _inputDecoration(
-                    isDark,
-                    fieldColor,
-                    'اشرح مشكلتك أو استفسارك بالتفصيل',
-                  ),
-                ),
-
-                const SizedBox(height: 35),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // منطق الحفظ
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text(
-                      'إنشاء',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ================= CONTACTS =================
-
-  Widget _buildContactsList(
-      bool isDark,
-      Color cardColor,
-      Color fieldColor,
-      Color primaryBlue,
-      ) {
+  // الواجهة الثانية: قائمة جهات الاتصال
+  Widget _buildContactsList(bool isDark, Color cardColor, Color primaryBlue) {
     return Column(
       children: [
         Padding(
@@ -315,138 +135,44 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           child: TextField(
             controller: _searchController,
             textAlign: TextAlign.right,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87,
-            ),
             decoration: InputDecoration(
               hintText: 'بحث في جهات الاتصال',
-              hintTextDirection: TextDirection.rtl,
-              hintStyle: TextStyle(
-                color: isDark ? Colors.white54 : Colors.grey,
-              ),
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                color: primaryBlue,
-              ),
+              prefixIcon: Icon(Icons.search, color: primaryBlue),
               filled: true,
-              fillColor: fieldColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 15),
+              fillColor: cardColor,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
             ),
           ),
         ),
-
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('users').snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
-
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
               final users = snapshot.data?.docs ?? [];
-
-              if (users.isEmpty) {
-                return Center(
-                  child: Text(
-                    'لا توجد جهات اتصال',
-                    style: TextStyle(
-                      color:
-                      isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                );
-              }
-
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: TSizes.md,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: TSizes.md),
                 itemCount: users.length,
                 itemBuilder: (context, index) {
-                  final user =
-                  users[index].data() as Map<String, dynamic>;
-
+                  final user = users[index].data() as Map<String, dynamic>;
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor:
-                          primaryBlue.withOpacity(0.15),
-                          child: Text(
-                            user['name']?[0] ?? '?',
-                            style: TextStyle(
-                              color: primaryBlue,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(user['name'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                            Text(user['role'] ?? '', style: const TextStyle(color: TColors.grey, fontSize: 12)),
+                          ],
                         ),
-
                         const SizedBox(width: 15),
-
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user['name'] ?? '',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: isDark
-                                      ? Colors.white
-                                      : Colors.black87,
-                                ),
-                              ),
-
-                              const SizedBox(height: 4),
-
-                              Text(
-                                user['role'] ?? '',
-                                style: const TextStyle(
-                                  color: TColors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        Container(
-                          decoration: BoxDecoration(
-                            color: primaryBlue.withOpacity(0.12),
-                            borderRadius:
-                            BorderRadius.circular(14),
-                          ),
-                          child: IconButton(
-                            onPressed: () {},
-                            icon: Icon(
-                              Icons.chat_rounded,
-                              color: primaryBlue,
-                            ),
-                          ),
+                        CircleAvatar(
+                          backgroundColor: Colors.white,
+                          child: Text(user['name']?[0] ?? '?', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -460,66 +186,27 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
     );
   }
 
-  // ================= HELPERS =================
-
-  Widget _buildLabel(
-      String label,
-      IconData icon,
-      bool isDark,
-      ) {
+  // مساعدات التصميم (UI Helpers)
+  Widget _buildLabel(String label, IconData icon) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: isDark ? Colors.white70 : Colors.black87,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: TColors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(width: 8),
-        Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF5DB1DF),
-        ),
+        Icon(icon, size: 18, color: TColors.grey),
       ],
     );
   }
 
-  InputDecoration _inputDecoration(
-      bool isDark,
-      Color fieldColor,
-      String hint,
-      ) {
+  InputDecoration _inputDecoration(bool isDark) {
     return InputDecoration(
-      hintText: hint,
-      hintTextDirection: TextDirection.rtl,
-      hintStyle: TextStyle(
-        color: isDark ? Colors.white54 : Colors.grey,
-      ),
       filled: true,
-      fillColor: fieldColor,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 16,
-      ),
+      fillColor: isDark ? TColors.dark : Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(
-          color: Color(0xFF5DB1DF),
-          width: 1.5,
-        ),
       ),
     );
   }
 }
+

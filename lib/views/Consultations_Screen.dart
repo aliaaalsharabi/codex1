@@ -7,54 +7,38 @@ import 'package:codex_firebase/constants/sizes.dart';
 import 'package:codex_firebase/modelview/theme_vm.dart';
 
 class ConsultationsScreen extends StatefulWidget {
-  final String? consultantId;
-  final String? consultantName;
-
-  const ConsultationsScreen({
-    super.key,
-    this.consultantId,
-    this.consultantName,
-  });
+  final String? consultantId; // معرف المستشار (اختياري)
+  final String? consultantName; // اسم المستشار
+  const ConsultationsScreen({super.key, this.consultantId, this.consultantName});
 
   @override
-  State<ConsultationsScreen> createState() =>
-      _ConsultationsScreenState();
+  State<ConsultationsScreen> createState() => _ConsultationsScreenState();
 }
 
-class _ConsultationsScreenState
-    extends State<ConsultationsScreen> {
-  final TextEditingController _messageController =
-  TextEditingController();
-
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
+class _ConsultationsScreenState extends State<ConsultationsScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   bool _isLoading = false;
 
-  String get _consultantId =>
-      widget.consultantId ?? 'consultant_1';
-
-  String get _consultantName =>
-      widget.consultantName ?? 'المستشار';
+  // معرف المستشار الافتراضي إذا لم يتم تمريره
+  String get _consultantId => widget.consultantId ?? 'consultant_1';
+  String get _consultantName => widget.consultantName ?? 'المستشار';
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
-
     if (_auth.currentUser == null) {
       _showError('الرجاء تسجيل الدخول أولاً');
       return;
     }
 
-    final userMessage =
-    _messageController.text.trim();
-
+    final userMessage = _messageController.text.trim();
     _messageController.clear();
 
     setState(() => _isLoading = true);
 
     try {
+      // حفظ رسالة المستخدم
       await _firestore.collection('consultations').add({
         'userId': _auth.currentUser?.uid,
         'consultantId': _consultantId,
@@ -63,8 +47,8 @@ class _ConsultationsScreenState
         'timestamp': Timestamp.now(),
       });
 
-      final replyMessage =
-          "شكراً لتواصلك مع $_consultantName. سيتم الرد عليك قريباً.";
+      // ✅ رد تلقائي من المستشار (يمكن استبداله بـ API حقيقي لاحقًا)
+      final replyMessage = "شكراً لتواصلك مع $_consultantName. سيتم الرد عليك قريباً.";
 
       await _firestore.collection('consultations').add({
         'userId': _auth.currentUser?.uid,
@@ -75,535 +59,146 @@ class _ConsultationsScreenState
       });
     } catch (e) {
       print('❌ خطأ في الإرسال: $e');
-
-      _showError(
-        'فشل إرسال الرسالة: ${e.toString()}',
-      );
+      _showError('فشل إرسال الرسالة: ${e.toString()}');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: TColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: TColors.error),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        Provider.of<Theme_Vm>(context).isDarkMode;
-
-    final userId =
-        _auth.currentUser?.uid ?? '';
-
-    final primaryColor =
-    const Color(0xFF5DB1DF);
-
-    final backgroundColor =
-    isDark ? TColors.dark : const Color(0xFFF7FAFC);
-
-    final cardColor =
-    isDark ? TColors.darkerGrey : Colors.white;
+    final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
+    final userId = _auth.currentUser?.uid ?? '';
 
     if (userId.isEmpty) {
       return Scaffold(
-        backgroundColor: backgroundColor,
-
+        backgroundColor: isDark ? TColors.dark : TColors.white,
         appBar: AppBar(
-          elevation: 0,
+          title: Text('استشارة مع $_consultantName'),
+          backgroundColor: TColors.primary,
+          foregroundColor: TColors.white,
           centerTitle: true,
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          title: Text(
-            'استشارة مع $_consultantName',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
         ),
-
         body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(25),
-            child: Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius:
-                BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black
-                        .withOpacity(0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 80, color: TColors.grey),
+              const SizedBox(height: TSizes.md),
+              Text(
+                'الرجاء تسجيل الدخول أولاً',
+                style: TextStyle(color: isDark ? TColors.white : TColors.black),
               ),
-
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding:
-                    const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: primaryColor
-                          .withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.lock_outline_rounded,
-                      size: 60,
-                      color: primaryColor,
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  Text(
-                    'الرجاء تسجيل الدخول أولاً',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? Colors.white
-                          : Colors.black87,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Text(
-                    'قم بتسجيل الدخول لبدء المحادثة مع المستشار',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isDark
-                          ? Colors.white70
-                          : Colors.grey[600],
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/login',
-                        );
-                      },
-                      style:
-                      ElevatedButton.styleFrom(
-                        backgroundColor:
-                        primaryColor,
-                        elevation: 0,
-                        shape:
-                        RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(
-                              18),
-                        ),
-                      ),
-                      child: const Text(
-                        'تسجيل الدخول',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight:
-                          FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: TSizes.md),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
+                child: const Text('تسجيل الدخول'),
               ),
-            ),
+            ],
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-
+      backgroundColor: isDark ? TColors.dark : TColors.white,
       appBar: AppBar(
-        elevation: 0,
+        title: Text('استشارة مع $_consultantName'),
+        backgroundColor: TColors.primary,
+        foregroundColor: TColors.white,
         centerTitle: true,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-
-        title: Column(
-          children: [
-            Text(
-              'استشارة مع $_consultantName',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-
-            const SizedBox(height: 2),
-
-            const Text(
-              'متصل الآن',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white70,
-              ),
-            ),
-          ],
-        ),
-
-        actions: [
-          Padding(
-            padding:
-            const EdgeInsets.only(right: 12),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor:
-              Colors.white.withOpacity(0.2),
-              child: const Icon(
-                Icons.support_agent_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ],
       ),
-
       body: Column(
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore
                   .collection('consultations')
-                  .where('userId',
-                  isEqualTo: userId)
-                  .where('consultantId',
-                  isEqualTo:
-                  _consultantId)
-                  .orderBy(
-                'timestamp',
-                descending: false,
-              )
+                  .where('userId', isEqualTo: userId)
+                  .where('consultantId', isEqualTo: _consultantId)
+                  .orderBy('timestamp', descending: false)
                   .snapshots(),
-
               builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return Center(
-                    child:
-                    CircularProgressIndicator(
-                      color: primaryColor,
-                    ),
-                  );
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-
                 if (snapshot.hasError) {
-                  print(
-                      '❌ خطأ في StreamBuilder: ${snapshot.error}');
-
+                  print('❌ خطأ في StreamBuilder: ${snapshot.error}');
                   return Center(
-                    child: Padding(
-                      padding:
-                      const EdgeInsets.all(25),
-                      child: Column(
-                        mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 80,
-                            color: Colors.redAccent,
-                          ),
-
-                          const SizedBox(
-                              height: 20),
-
-                          Text(
-                            'حدث خطأ أثناء تحميل الرسائل',
-                            textAlign:
-                            TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                              FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : Colors.black87,
-                            ),
-                          ),
-
-                          const SizedBox(
-                              height: 10),
-
-                          Text(
-                            '${snapshot.error}',
-                            textAlign:
-                            TextAlign.center,
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white70
-                                  : Colors.grey,
-                            ),
-                          ),
-
-                          const SizedBox(
-                              height: 25),
-
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {});
-                            },
-                            style:
-                            ElevatedButton
-                                .styleFrom(
-                              backgroundColor:
-                              primaryColor,
-                              shape:
-                              RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius
-                                    .circular(
-                                    15),
-                              ),
-                            ),
-                            child: const Text(
-                              'إعادة المحاولة',
-                              style: TextStyle(
-                                color:
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 60, color: TColors.error),
+                        const SizedBox(height: TSizes.md),
+                        Text(
+                          'حدث خطأ: ${snapshot.error}',
+                          style: TextStyle(color: isDark ? TColors.white : TColors.black),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: TSizes.md),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {});
+                          },
+                          child: const Text('إعادة المحاولة'),
+                        ),
+                      ],
                     ),
                   );
                 }
-
-                if (!snapshot.hasData ||
-                    snapshot
-                        .data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
-                    child: Padding(
-                      padding:
-                      const EdgeInsets.all(25),
-                      child: Column(
-                        mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
-                        children: [
-                          Container(
-                            padding:
-                            const EdgeInsets
-                                .all(25),
-                            decoration:
-                            BoxDecoration(
-                              color: primaryColor
-                                  .withOpacity(
-                                  0.12),
-                              shape:
-                              BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons
-                                  .chat_bubble_outline_rounded,
-                              size: 65,
-                              color:
-                              primaryColor,
-                            ),
-                          ),
-
-                          const SizedBox(
-                              height: 25),
-
-                          Text(
-                            'ابدأ محادثة مع $_consultantName',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight:
-                              FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : Colors.black87,
-                            ),
-                          ),
-
-                          const SizedBox(
-                              height: 10),
-
-                          Text(
-                            'اكتب استشارتك وسيتم الرد عليك قريباً',
-                            textAlign:
-                            TextAlign.center,
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white70
-                                  : Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline, size: 60, color: TColors.grey),
+                        const SizedBox(height: TSizes.md),
+                        Text(
+                          'ابدأ محادثة مع $_consultantName',
+                          style: TextStyle(color: isDark ? TColors.grey : TColors.darkGrey),
+                        ),
+                      ],
                     ),
                   );
                 }
-
-                final messages =
-                    snapshot.data!.docs;
-
+                final messages = snapshot.data!.docs;
                 return ListView.builder(
-                  padding:
-                  const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 18,
-                  ),
+                  padding: const EdgeInsets.all(TSizes.sm),
                   itemCount: messages.length,
-
-                  itemBuilder:
-                      (context, index) {
-                    final data =
-                    messages[index].data()
-                    as Map<String,
-                        dynamic>;
-
-                    final isUser =
-                        data['isUser'] ??
-                            false;
-
+                  itemBuilder: (context, index) {
+                    final data = messages[index].data() as Map<String, dynamic>;
+                    final isUser = data['isUser'] ?? false;
                     return Align(
-                      alignment: isUser
-                          ? Alignment
-                          .centerRight
-                          : Alignment
-                          .centerLeft,
-
+                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin:
-                        const EdgeInsets.only(
-                          bottom: 14,
-                        ),
-
-                        padding:
-                        const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-
-                        constraints: BoxConstraints(
-                          maxWidth:
-                          MediaQuery.of(
-                              context)
-                              .size
-                              .width *
-                              0.78,
-                        ),
-
+                        margin: const EdgeInsets.all(TSizes.xs),
+                        padding: const EdgeInsets.all(TSizes.md),
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                         decoration: BoxDecoration(
-                          gradient: isUser
-                              ? LinearGradient(
-                            colors: [
-                              primaryColor,
-                              primaryColor
-                                  .withOpacity(
-                                  0.8),
-                            ],
-                          )
-                              : null,
-
                           color: isUser
-                              ? null
-                              : cardColor,
-
-                          borderRadius:
-                          BorderRadius.only(
-                            topLeft:
-                            const Radius
-                                .circular(24),
-                            topRight:
-                            const Radius
-                                .circular(24),
-                            bottomLeft: Radius
-                                .circular(
-                                isUser
-                                    ? 24
-                                    : 6),
-                            bottomRight:
-                            Radius.circular(
-                                isUser
-                                    ? 6
-                                    : 24),
+                              ? TColors.primary.withOpacity(isDark ? 0.3 : 0.15)
+                              : (isDark ? TColors.darkerGrey : TColors.grey.withOpacity(0.3)),
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(TSizes.cardRaduisSm),
+                            topRight: const Radius.circular(TSizes.cardRaduisSm),
+                            bottomLeft: isUser ? const Radius.circular(TSizes.cardRaduisSm) : Radius.zero,
+                            bottomRight: isUser ? Radius.zero : const Radius.circular(TSizes.cardRaduisSm),
                           ),
-
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(
-                                  0.05),
-                              blurRadius: 10,
-                              offset:
-                              const Offset(
-                                  0, 4),
-                            ),
-                          ],
                         ),
-
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-                          children: [
-                            Text(
-                              data['message'] ??
-                                  '',
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.5,
-                                color: isUser
-                                    ? Colors.white
-                                    : (isDark
-                                    ? Colors
-                                    .white
-                                    : Colors
-                                    .black87),
-                              ),
-                            ),
-
-                            const SizedBox(
-                                height: 8),
-
-                            Text(
-                              (data['timestamp']
-                              as Timestamp?)
-                                  ?.toDate()
-                                  .toLocal()
-                                  .toString()
-                                  .substring(
-                                  11, 16) ??
-                                  '',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isUser
-                                    ? Colors
-                                    .white70
-                                    : Colors.grey,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          data['message'] ?? '',
+                          style: TextStyle(
+                            fontSize: TSizes.fontSizeSm,
+                            color: isDark ? TColors.white : TColors.black,
+                          ),
                         ),
                       ),
                     );
@@ -612,150 +207,52 @@ class _ConsultationsScreenState
               },
             ),
           ),
-
           if (_isLoading)
-            Padding(
-              padding:
-              const EdgeInsets.only(
-                bottom: 10,
-              ),
-              child:
-              CircularProgressIndicator(
-                color: primaryColor,
-              ),
+            const Padding(
+              padding: EdgeInsets.all(TSizes.sm),
+              child: Center(child: CircularProgressIndicator()),
             ),
-
           Container(
-            padding:
-            const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-
+            padding: const EdgeInsets.all(TSizes.sm),
             decoration: BoxDecoration(
-              color: cardColor,
-
+              color: isDark ? TColors.darkerGrey : TColors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black
-                      .withOpacity(0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, -4),
+                  color: isDark ? Colors.black26 : TColors.black.withOpacity(0.05),
+                  blurRadius: 5,
                 ),
               ],
-
-              borderRadius:
-              const BorderRadius.only(
-                topLeft: Radius.circular(28),
-                topRight: Radius.circular(28),
-              ),
             ),
-
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration:
-                      BoxDecoration(
-                        color: isDark
-                            ? TColors.dark
-                            : const Color(
-                            0xFFF3F7FA),
-
-                        borderRadius:
-                        BorderRadius
-                            .circular(18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(color: isDark ? TColors.white : TColors.black),
+                    decoration: InputDecoration(
+                      hintText: 'اكتب رسالتك...',
+                      hintStyle: TextStyle(color: isDark ? TColors.grey : Colors.grey),
+                      hintTextDirection: TextDirection.rtl,
+                      filled: true,
+                      fillColor: isDark ? TColors.dark : TColors.softGrey,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(TSizes.borderRaduisMd),
+                        borderSide: BorderSide.none,
                       ),
-
-                      child: TextField(
-                        controller:
-                        _messageController,
-
-                        textAlign:
-                        TextAlign.right,
-
-                        style: TextStyle(
-                          color: isDark
-                              ? Colors.white
-                              : Colors.black,
-                        ),
-
-                        decoration:
-                        InputDecoration(
-                          hintText:
-                          'اكتب رسالتك...',
-                          hintStyle:
-                          TextStyle(
-                            color: isDark
-                                ? TColors
-                                .grey
-                                : Colors.grey,
-                          ),
-
-                          hintTextDirection:
-                          TextDirection.rtl,
-
-                          border:
-                          InputBorder.none,
-
-                          contentPadding:
-                          const EdgeInsets
-                              .symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                        ),
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: TSizes.md, vertical: 10),
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
-                  Container(
-                    decoration:
-                    BoxDecoration(
-                      gradient:
-                      LinearGradient(
-                        colors: [
-                          primaryColor,
-                          primaryColor
-                              .withOpacity(
-                              0.8),
-                        ],
-                      ),
-
-                      shape:
-                      BoxShape.circle,
-
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor
-                              .withOpacity(
-                              0.4),
-                          blurRadius: 12,
-                          offset:
-                          const Offset(
-                              0, 5),
-                        ),
-                      ],
-                    ),
-
-                    child: IconButton(
-                      onPressed: _isLoading
-                          ? null
-                          : _sendMessage,
-
-                      icon: const Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
+                ),
+                const SizedBox(width: TSizes.sm),
+                CircleAvatar(
+                  backgroundColor: TColors.primary,
+                  child: IconButton(
+                    onPressed: _isLoading ? null : _sendMessage,
+                    icon: const Icon(Icons.send, color: TColors.white, size: 20),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

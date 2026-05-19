@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:codex_firebase/modelview/theme_vm.dart';
-import 'package:codex_firebase/constants/colors.dart';
-
+import 'package:codex_firebase/modelview/theme_vm.dart'; // تأكدي من المسار الصحيح للثيم
+import 'package:codex_firebase/constants/colors.dart';   // تأكدي من المسار الصحيح للثوابت
 import 'home_screen.dart';
 import 'store_screen.dart';
 import 'consultations_screen.dart';
@@ -17,7 +16,7 @@ class MainWrapper extends StatefulWidget {
 }
 
 class _MainWrapperState extends State<MainWrapper> {
-  int _currentIndex = 4;
+  int _currentIndex = 0;
 
   final List<Widget> _pages = [
     const AdsScreen(),
@@ -27,151 +26,47 @@ class _MainWrapperState extends State<MainWrapper> {
     const HomeScreen(),
   ];
 
-  final List<Map<String, dynamic>> _navItems = [
-    {
-      "icon": Icons.campaign_rounded,
-      "label": "إعلانات",
-    },
-    {
-      "icon": Icons.shopping_bag_rounded,
-      "label": "متجر",
-    },
-    {
-      "icon": Icons.chat_bubble_rounded,
-      "label": "استشارة",
-    },
-    {
-      "icon": Icons.person_rounded,
-      "label": "الحساب",
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
+    // التحقق من حالة الوضع الليلي
     final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
 
-    const Color primaryBlue = Color(0xFF5DB1DF);
-
-    final Color backgroundColor =
-    isDark ? const Color(0xFF0F172A) : const Color(0xFFF5FAFD);
-
-    final Color navBarColor =
-    isDark ? const Color(0xFF1E293B) : Colors.white;
-
-    final Color selectedColor = primaryBlue;
-
-    final Color unselectedColor =
-    isDark ? Colors.white54 : Colors.grey.shade500;
+    // الألوان المتغيرة بناءً على الوضع
+    final Color brandColor = const Color(0xFF5DB1DF);
+    final Color scaffoldBg = isDark ? TColors.dark : TColors.white;
+    final Color navBarBg = isDark ? TColors.darkerGrey : brandColor;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-
-      // ================= BODY =================
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _pages[_currentIndex],
+      backgroundColor: scaffoldBg,
+      appBar: _currentIndex == 4
+          ? null
+          : AppBar(
+        backgroundColor: navBarBg,
+        elevation: 0,
+        title: Text(
+          "CODEX",
+          style: TextStyle(color: isDark ? TColors.white : Colors.white),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.home, color: isDark ? TColors.white : Colors.white),
+          onPressed: () => setState(() => _currentIndex = 4),
+        ),
       ),
-
-      // ================= BOTTOM NAVIGATION =================
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.only(
-          left: 18,
-          right: 18,
-          bottom: 18,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: navBarColor,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.grey.withOpacity(0.08),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(
-            _navItems.length,
-                (index) {
-              final bool isSelected = _currentIndex == index;
-
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _currentIndex = index;
-                    });
-                  },
-                  behavior: HitTestBehavior.translucent,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? primaryBlue.withOpacity(
-                        isDark ? 0.18 : 0.12,
-                      )
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? selectedColor
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _navItems[index]["icon"],
-                            color: isSelected
-                                ? Colors.white
-                                : unselectedColor,
-                            size: 24,
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 250),
-                          style: TextStyle(
-                            fontSize: isSelected ? 13 : 12,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? selectedColor
-                                : unselectedColor,
-                          ),
-                          child: Text(
-                            _navItems[index]["label"],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex == 4 ? 0 : _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: navBarBg,
+        selectedItemColor: isDark ? TColors.primary : Colors.white,
+        unselectedItemColor: isDark ? TColors.grey : Colors.white70,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.announcement), label: 'إعلانات'),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'متجر'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'استشارة'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الحساب'),
+        ],
       ),
     );
   }
