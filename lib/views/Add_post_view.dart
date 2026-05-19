@@ -51,8 +51,7 @@ class _AddPostViewState extends State<AddPostView> {
   // ──────────────────────────────────────────
 
   Future<void> _pickImage() async {
-    final XFile? image =
-    await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() => _selectedImage = File(image.path));
     }
@@ -61,9 +60,11 @@ class _AddPostViewState extends State<AddPostView> {
   Future<String?> _uploadImage() async {
     if (_selectedImage == null) return null;
     try {
-      final storageService =
-      Provider.of<AppwriteStorageService>(context, listen: false);
-      final result = await storageService.uploadImage(_selectedImage!);
+      final storageService = Provider.of<AppwriteStorageService>(
+        context,
+        listen: false,
+      );
+      final result = await storageService.uploadImageFromFile(_selectedImage!);
       return result.$id;
     } catch (e) {
       return null;
@@ -75,8 +76,7 @@ class _AddPostViewState extends State<AddPostView> {
   // ──────────────────────────────────────────
 
   Future<void> _submitPost() async {
-    final loc =
-        Provider.of<Language_Vm>(context, listen: false).localization;
+    final loc = Provider.of<Language_Vm>(context, listen: false).localization;
 
     if (_selectedCategory == null) {
       _showSnackBar(loc.selectType, color: Colors.orange);
@@ -111,12 +111,14 @@ class _AddPostViewState extends State<AddPostView> {
           'userId': userId,
           'nameJob': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
-          'location': _locationController.text.trim().isEmpty
-              ? loc.locationUnknown
-              : _locationController.text.trim(),
-          'jobType': _jobTypeController.text.trim().isEmpty
-              ? loc.typeUnknown
-              : _jobTypeController.text.trim(),
+          'location':
+              _locationController.text.trim().isEmpty
+                  ? loc.locationUnknown
+                  : _locationController.text.trim(),
+          'jobType':
+              _jobTypeController.text.trim().isEmpty
+                  ? loc.typeUnknown
+                  : _jobTypeController.text.trim(),
           'status': 'open',
           'imageId': imageId,
           'numberOfLike': 0,
@@ -152,9 +154,7 @@ class _AddPostViewState extends State<AddPostView> {
 
       if (mounted) {
         _showSnackBar(
-          _selectedImage != null
-              ? loc.postSuccessWithImage
-              : loc.postSuccess,
+          _selectedImage != null ? loc.postSuccessWithImage : loc.postSuccess,
           color: Colors.green,
         );
         Navigator.pop(context, true);
@@ -174,8 +174,7 @@ class _AddPostViewState extends State<AddPostView> {
         content: Text(msg, style: const TextStyle(color: Colors.white)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(14),
       ),
     );
@@ -251,8 +250,7 @@ class _AddPostViewState extends State<AddPostView> {
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color:
-                isDark ? TColors.dark : const Color(0xFFF5FAFD),
+                color: isDark ? TColors.dark : const Color(0xFFF5FAFD),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(32),
                   topRight: Radius.circular(32),
@@ -354,17 +352,20 @@ class _AddPostViewState extends State<AddPostView> {
                       height: 54,
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _submitPost,
-                        icon: _isLoading
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                            : const Icon(Icons.send_rounded,
-                            color: Colors.white),
+                        icon:
+                            _isLoading
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                : const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                ),
                         label: Text(
                           _isLoading ? '...' : loc.submitPost,
                           style: const TextStyle(
@@ -375,8 +376,9 @@ class _AddPostViewState extends State<AddPostView> {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryBlue,
-                          disabledBackgroundColor:
-                          _primaryBlue.withOpacity(0.5),
+                          disabledBackgroundColor: _primaryBlue.withOpacity(
+                            0.5,
+                          ),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -410,7 +412,8 @@ class _AddPostViewState extends State<AddPostView> {
           color: isDark ? TColors.darkerGrey : Colors.white,
           border: Border.all(
             color: _primaryBlue.withOpacity(
-                _selectedImage != null ? 0.4 : 0.15),
+              _selectedImage != null ? 0.4 : 0.15,
+            ),
             width: _selectedImage != null ? 2 : 1,
           ),
           boxShadow: [
@@ -421,98 +424,108 @@ class _AddPostViewState extends State<AddPostView> {
             ),
           ],
         ),
-        child: _selectedImage != null
-            ? Stack(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.file(
-                _selectedImage!,
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-              ),
-            ),
-            // زر الحذف
-            Positioned(
-              top: 10,
-              left: 10,
-              child: GestureDetector(
-                onTap: () =>
-                    setState(() => _selectedImage = null),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.close,
-                      color: Colors.white, size: 18),
-                ),
-              ),
-            ),
-            // زر التغيير
-            Positioned(
-              bottom: 10,
-              left: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _primaryBlue.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+        child:
+            _selectedImage != null
+                ? Stack(
                   children: [
-                    Icon(Icons.edit_outlined,
-                        color: Colors.white, size: 14),
-                    SizedBox(width: 4),
-                    Text('تغيير',
-                        style: TextStyle(
-                            color: Colors.white, fontSize: 12)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.file(
+                        _selectedImage!,
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    // زر الحذف
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedImage = null),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // زر التغيير
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _primaryBlue.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'تغيير',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _primaryBlue.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 36,
+                        color: _primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'إضافة صورة',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'JPG, PNG — اختياري',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? TColors.grey : Colors.grey.shade500,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ),
-          ],
-        )
-            : Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _primaryBlue.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.add_photo_alternate_outlined,
-                size: 36,
-                color: _primaryBlue,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'إضافة صورة',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'JPG, PNG — اختياري',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? TColors.grey
-                    : Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -564,20 +577,20 @@ class _AddPostViewState extends State<AddPostView> {
         fillColor: isDark ? TColors.darkerGrey : Colors.white,
         prefixIcon: Icon(icon, color: _primaryBlue, size: 20),
         contentPadding: const EdgeInsets.symmetric(
-            vertical: 16, horizontal: 16),
+          vertical: 16,
+          horizontal: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-          BorderSide(color: _primaryBlue.withOpacity(0.1)),
+          borderSide: BorderSide(color: _primaryBlue.withOpacity(0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-          const BorderSide(color: _primaryBlue, width: 1.5),
+          borderSide: const BorderSide(color: _primaryBlue, width: 1.5),
         ),
       ),
     );
@@ -586,8 +599,7 @@ class _AddPostViewState extends State<AddPostView> {
   Widget _buildDropdown(bool isDark, dynamic loc) {
     return DropdownButtonFormField<String>(
       value: _selectedCategory,
-      dropdownColor:
-      isDark ? TColors.darkerGrey : Colors.white,
+      dropdownColor: isDark ? TColors.darkerGrey : Colors.white,
       style: TextStyle(
         color: isDark ? TColors.white : Colors.black87,
         fontSize: 14,
@@ -595,23 +607,23 @@ class _AddPostViewState extends State<AddPostView> {
       decoration: InputDecoration(
         filled: true,
         fillColor: isDark ? TColors.darkerGrey : Colors.white,
-        prefixIcon:
-        const Icon(Icons.category_outlined, color: _primaryBlue, size: 20),
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        prefixIcon: const Icon(
+          Icons.category_outlined,
+          color: _primaryBlue,
+          size: 20,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-          BorderSide(color: _primaryBlue.withOpacity(0.1)),
+          borderSide: BorderSide(color: _primaryBlue.withOpacity(0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-          const BorderSide(color: _primaryBlue, width: 1.5),
+          borderSide: const BorderSide(color: _primaryBlue, width: 1.5),
         ),
       ),
       hint: Text(
@@ -626,8 +638,7 @@ class _AddPostViewState extends State<AddPostView> {
           value: 'job',
           child: Row(
             children: [
-              const Icon(Icons.work_outline,
-                  color: _primaryBlue, size: 18),
+              const Icon(Icons.work_outline, color: _primaryBlue, size: 18),
               const SizedBox(width: 8),
               Text(loc.job),
             ],
@@ -637,16 +648,18 @@ class _AddPostViewState extends State<AddPostView> {
           value: 'product',
           child: Row(
             children: [
-              const Icon(Icons.shopping_bag_outlined,
-                  color: _primaryBlue, size: 18),
+              const Icon(
+                Icons.shopping_bag_outlined,
+                color: _primaryBlue,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(loc.product),
             ],
           ),
         ),
       ],
-      onChanged: (value) =>
-          setState(() => _selectedCategory = value),
+      onChanged: (value) => setState(() => _selectedCategory = value),
     );
   }
 
@@ -672,7 +685,7 @@ class _AddPostViewState extends State<AddPostView> {
 
     if (picked != null) {
       _deadlineController.text =
-      '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
     }
   }
 }
