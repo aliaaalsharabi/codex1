@@ -1,344 +1,338 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:codex_firebase/constants/colors.dart';
-import 'package:codex_firebase/constants/sizes.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
+
+const Color _primary = Color(0xFF429EBD);
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
 
   @override
-  State<ForgetPasswordScreen> createState() =>
-      _ForgetPasswordScreenState();
+  State<ForgetPasswordScreen> createState() => _ForgetPasswordScreenState();
 }
 
 class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
-  final TextEditingController _emailController =
-  TextEditingController();
-
+  final _emailController = TextEditingController();
+  final _auth = FirebaseAuth.instance;
   bool _isLoading = false;
+  bool _emailSent = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> _sendResetEmail() async {
+    final loc = Provider.of<Language_Vm>(context, listen: false).localization;
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
-      _showMessage(
-        'الرجاء إدخال البريد الإلكتروني',
-        TColors.error,
-      );
+      _showMessage(loc.pleaseEnterEmail, TColors.error);
       return;
     }
 
     setState(() => _isLoading = true);
-
     try {
       await _auth.sendPasswordResetEmail(email: email);
-
-      _showMessage(
-        'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني',
-        TColors.success,
-      );
-
+      setState(() => _emailSent = true);
+      _showMessage(loc.resetLinkSent, TColors.success);
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) Navigator.pop(context);
       });
     } catch (e) {
-      _showMessage(
-        e.toString(),
-        TColors.error,
-      );
+      _showMessage(e.toString(), TColors.error);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showMessage(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        content: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(14),
+      content: Text(
+        message,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
-    );
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF5DB1DF);
-    const Color darkBlue = Color(0xFF006699);
+    final langVm = context.watch<Language_Vm>();
+    final loc    = langVm.localization;
+    final isRTL  = langVm.textDirection == TextDirection.rtl;
+    final size   = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FBFE),
+      backgroundColor: _primary,
+      body: Column(
+        children: [
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 20,
-          ),
-          child: Column(
-            children: [
+          // ===== HEADER =====
+          SizedBox(
+            height: size.height * 0.32,
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
 
-              /// زر الرجوع
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                  // زر الرجوع
+                  Positioned(
+                    top: 4,
+                    right: isRTL ? 8 : null,
+                    left: isRTL ? null : 8,
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        isRTL ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                  child: IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: darkBlue,
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 40),
+                  // أيقونة + عنوان
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 20),
 
-              /// أيقونة
-              Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      primaryBlue.withOpacity(0.9),
-                      const Color(0xFF429EBD),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryBlue.withOpacity(0.35),
-                      blurRadius: 25,
-                      offset: const Offset(0, 10),
+                        // أيقونة فلات بدون gradient
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Icon(
+                            Icons.lock_reset_rounded,
+                            size: 42,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        Text(
+                          loc.forgetPasswordTitle,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            loc.forgetPasswordSubtitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.85),
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.lock_reset_rounded,
-                  size: 65,
-                  color: Colors.white,
-                ),
-              ),
-
-              const SizedBox(height: 35),
-
-              /// العنوان
-              const Text(
-                'نسيت كلمة المرور؟',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                  color: darkBlue,
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              /// الوصف
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey,
-                    height: 1.7,
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          // ===== FORM =====
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5FAFD),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
                 ),
               ),
-
-              const SizedBox(height: 45),
-
-              /// الكارد الرئيسي
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 32, 22, 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
 
-                    /// حقل البريد
+                    // ===== حقل البريد =====
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-
+                      style: const TextStyle(fontSize: 15),
                       decoration: InputDecoration(
-                        hintText: 'البريد الإلكتروني',
-                        hintTextDirection: TextDirection.rtl,
-
+                        hintText: loc.email,
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
                         filled: true,
-                        fillColor: const Color(0xFFF4F8FB),
-
-                        prefixIcon: Container(
-                          margin: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: primaryBlue.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.email_outlined,
-                            color: primaryBlue,
-                          ),
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: _primary,
+                          size: 20,
                         ),
-
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(
-                            color: primaryBlue,
-                            width: 1.5,
-                          ),
-                        ),
-
+                        // ✅ أيقونة تأكيد عند الإرسال
+                        suffixIcon: _emailSent
+                            ? const Icon(Icons.check_circle_rounded,
+                            color: Colors.green, size: 22)
+                            : null,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 20,
+                          vertical: 16,
+                          horizontal: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: _primary, width: 1.5),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 24),
 
-                    /// زر الإرسال
+                    // ===== زر الإرسال =====
                     SizedBox(
-                      width: double.infinity,
-                      height: 58,
-
+                      height: 54,
                       child: ElevatedButton(
-                        onPressed:
-                        _isLoading ? null : _sendResetEmail,
-
+                        onPressed: _isLoading ? null : _sendResetEmail,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryBlue,
+                          backgroundColor: _emailSent
+                              ? Colors.green
+                              : _primary,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-
                         child: _isLoading
                             ? const SizedBox(
-                          width: 26,
-                          height: 26,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
                             color: Colors.white,
+                            strokeWidth: 2.5,
                           ),
                         )
-                            : const Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
+                            : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.send_rounded,
+                              _emailSent
+                                  ? Icons.check_rounded
+                                  : Icons.send_rounded,
                               color: Colors.white,
+                              size: 20,
                             ),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'إرسال رابط إعادة التعيين',
-                              style: TextStyle(
-                                fontSize: 17,
+                              _emailSent
+                                  ? loc.resetLinkSent
+                                  : loc.sendResetLink,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                                fontWeight:
-                                FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
 
-              const SizedBox(height: 35),
+                    const SizedBox(height: 28),
 
-              /// ملاحظة
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: primaryBlue.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: primaryBlue,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'تأكد من إدخال البريد الإلكتروني المرتبط بحسابك ليتم إرسال رابط إعادة التعيين بنجاح.',
-                        style: TextStyle(
-                          color: darkBlue,
-                          fontSize: 14,
-                          height: 1.6,
+                    // ===== ملاحظة =====
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _primary.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _primary.withOpacity(0.15),
+                          width: 1,
                         ),
-                        textAlign: TextAlign.right,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              color: _primary, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              loc.emailNote,
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 13,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ===== رجوع لتسجيل الدخول =====
+                    Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                            children: [
+                              TextSpan(text: '${loc.rememberPassword} '),
+                              const TextSpan(
+                                text: '← ',
+                                style: TextStyle(
+                                  color: _primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextSpan(
+                                text: loc.login,
+                                style: const TextStyle(
+                                  color: _primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

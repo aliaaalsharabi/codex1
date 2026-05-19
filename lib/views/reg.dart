@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:codex_firebase/views/MainWrapper.dart';
 import 'package:codex_firebase/views/Login_View.dart';
 import 'package:codex_firebase/modelview/user_vm.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
+import 'package:codex_firebase/l10n/app_localization.dart';
 
 class RegisterScreenNew extends StatefulWidget {
   const RegisterScreenNew({super.key});
@@ -30,21 +32,22 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
   // ================= Firebase Error Messages =================
 
   String _getFirebaseErrorMessage(String errorCode) {
+    final loc = Provider.of<Language_Vm>(context, listen: false).localization;
     switch (errorCode) {
       case 'email-already-in-use':
-        return 'هذا البريد الإلكتروني مستخدم بالفعل';
+        return loc.errorEmailInUse;
 
       case 'invalid-email':
-        return 'البريد الإلكتروني غير صالح';
+        return loc.errorInvalidEmail;
 
       case 'weak-password':
-        return 'كلمة المرور ضعيفة جداً';
+        return loc.errorWeakPassword;
 
       case 'network-request-failed':
-        return 'تحقق من اتصال الإنترنت';
+        return loc.errorNetwork;
 
       default:
-        return 'حدث خطأ غير متوقع';
+        return loc.errorUnexpected;
     }
   }
 
@@ -52,6 +55,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = Provider.of<Language_Vm>(context).localization;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F9FC),
       body: SafeArea(
@@ -112,9 +116,9 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                     const SizedBox(height: 20),
 
-                    const Text(
-                      "إنشاء حساب",
-                      style: TextStyle(
+                    Text(
+                      loc.createNewAccount,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.bold,
@@ -123,8 +127,8 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                     const SizedBox(height: 8),
 
-                    const Text(
-                      "قم بإنشاء حساب جديد للمتابعة",
+                    Text(
+                      loc.registerSubtitle,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 15,
@@ -163,7 +167,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           _buildTextField(
                             controller: _nameController,
-                            hint: "الاسم الكامل",
+                            hint: loc.fullName,
                             icon: Icons.person_outline,
                           ),
 
@@ -173,7 +177,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           _buildTextField(
                             controller: _emailController,
-                            hint: "البريد الإلكتروني",
+                            hint: loc.email,
                             icon: Icons.email_outlined,
                             keyboardType: TextInputType.emailAddress,
                           ),
@@ -184,7 +188,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           _buildTextField(
                             controller: _phoneController,
-                            hint: "رقم الهاتف",
+                            hint: loc.phone,
                             icon: Icons.phone_outlined,
                             keyboardType: TextInputType.phone,
                           ),
@@ -193,7 +197,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           // ================= DROPDOWN =================
 
-                          _buildDropdown(),
+                          _buildDropdown(loc),
 
                           const SizedBox(height: 18),
 
@@ -201,7 +205,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           _buildPasswordField(
                             controller: _passwordController,
-                            hint: "كلمة المرور",
+                            hint: loc.password,
                             obscure: _obscurePassword,
                             toggle: () {
                               setState(() {
@@ -216,7 +220,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
                           _buildPasswordField(
                             controller: _confirmPasswordController,
-                            hint: "تأكيد كلمة المرور",
+                            hint: loc.confirmPassword,
                             obscure: _obscureConfirmPassword,
                             toggle: () {
                               setState(() {
@@ -248,8 +252,8 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
                                   ? const CircularProgressIndicator(
                                 color: Colors.white,
                               )
-                                  : const Text(
-                                "إنشاء الحساب",
+                                  : Text(
+                                loc.createAccount,
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -267,8 +271,8 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
 
-                              const Text(
-                                "لديك حساب بالفعل؟",
+                              Text(
+                                loc.alreadyHaveAccount,
                                 style: TextStyle(fontSize: 15),
                               ),
 
@@ -282,7 +286,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
                                   );
                                 },
                                 child: Text(
-                                  "تسجيل الدخول",
+                                  loc.loginNow,
                                   style: TextStyle(
                                     color: primaryColor,
                                     fontWeight: FontWeight.bold,
@@ -317,7 +321,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      textAlign: TextAlign.right,
+      
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, color: primaryColor),
@@ -343,7 +347,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
     return TextField(
       controller: controller,
       obscureText: obscure,
-      textAlign: TextAlign.right,
+      
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(Icons.lock_outline, color: primaryColor),
@@ -366,7 +370,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
   // ================= DROPDOWN =================
 
-  Widget _buildDropdown() {
+  Widget _buildDropdown(AppLocalization loc) {
     return DropdownButtonFormField<String>(
       value: _selectedUserType,
       decoration: InputDecoration(
@@ -377,26 +381,26 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
           borderSide: BorderSide.none,
         ),
       ),
-      items: const [
+      items: [
 
         DropdownMenuItem(
           value: 'coder',
-          child: Text('مبرمج'),
+          child: Text(loc.coder),
         ),
 
         DropdownMenuItem(
           value: 'company',
-          child: Text('شركة'),
+          child: Text(loc.company),
         ),
 
         DropdownMenuItem(
           value: 'vendor',
-          child: Text('بائع'),
+          child: Text(loc.vendor),
         ),
 
         DropdownMenuItem(
           value: 'consultant',
-          child: Text('مستشار'),
+          child: Text(loc.consultant),
         ),
       ],
       onChanged: (value) {
@@ -410,6 +414,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
   // ================= REGISTER =================
 
   Future<void> _handleRegister(User_Vm userVm) async {
+    final loc = Provider.of<Language_Vm>(context, listen: false).localization;
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -418,27 +423,27 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
     // ================= VALIDATION =================
 
     if (name.isEmpty) {
-      _showError('الرجاء إدخال الاسم');
+      _showError(loc.pleaseEnterEmail);
       return;
     }
 
     if (email.isEmpty || !email.contains('@')) {
-      _showError('الرجاء إدخال بريد إلكتروني صحيح');
+      _showError(loc.enterValidEmail);
       return;
     }
 
     if (password.isEmpty) {
-      _showError('الرجاء إدخال كلمة المرور');
+      _showError(loc.pleaseEnterPassword);
       return;
     }
 
     if (password.length < 6) {
-      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      _showError(loc.passwordMinLength);
       return;
     }
 
     if (password != confirmPassword) {
-      _showError('كلمة المرور غير متطابقة');
+      _showError(loc.passwordsNotMatch);
       return;
     }
 
@@ -458,7 +463,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
       if (user != null && mounted) {
 
-        _showSuccess('تم إنشاء الحساب بنجاح');
+        _showSuccess(loc.registrationSuccess);
 
         Navigator.pushReplacement(
           context,
@@ -470,7 +475,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
       } else {
 
         String errorMsg =
-            userVm.errorMessage ?? 'فشل إنشاء الحساب';
+            userVm.errorMessage ?? loc.registrationFailed;
 
         if (errorMsg.contains('email-already-in-use')) {
           errorMsg =
@@ -528,7 +533,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
 
       } else {
 
-        _showError('حدث خطأ: ${e.toString()}');
+        _showError('${loc.errorUnexpected}: ${e.toString()}');
       }
 
     } finally {
@@ -551,7 +556,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
         ),
         content: Text(
           message,
-          textAlign: TextAlign.right,
+          
         ),
       ),
     );
@@ -569,7 +574,7 @@ class _RegisterScreenNewState extends State<RegisterScreenNew> {
         ),
         content: Text(
           message,
-          textAlign: TextAlign.right,
+          
         ),
       ),
     );

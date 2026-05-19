@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'base_vm.dart';
 
 // تعريف بسيط لكلاس User داخل نفس الملف لتجنب أي تعارض

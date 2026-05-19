@@ -18,6 +18,41 @@ class AdvertisementJob {
   final DateTime? updatedAt;
   final int? commentCount;  // ✅ عدد التعليقات
 
+  AdvertisementJob copyWith({
+    String? idJob,
+    String? userId,
+    int? numberOfLike,
+    List<String>? likes,
+    String? commentId,
+    String? nameJob,
+    String? description,
+    String? imageId,
+    String? location,
+    String? jobType,
+    String? status,
+    DateTime? deadline,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    int? commentCount,
+  }) {
+    return AdvertisementJob(
+      idJob: idJob ?? this.idJob,
+      userId: userId ?? this.userId,
+      numberOfLike: numberOfLike ?? this.numberOfLike,
+      likes: likes ?? this.likes,
+      commentId: commentId ?? this.commentId,
+      nameJob: nameJob ?? this.nameJob,
+      description: description ?? this.description,
+      imageId: imageId ?? this.imageId,
+      location: location ?? this.location,
+      jobType: jobType ?? this.jobType,
+      status: status ?? this.status,
+      deadline: deadline ?? this.deadline,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      commentCount: commentCount ?? this.commentCount,
+    );
+  }
   AdvertisementJob({
     required this.idJob,
     required this.userId,

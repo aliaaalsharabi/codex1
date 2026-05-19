@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:appwrite/appwrite.dart' hide Permission;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:appwrite/appwrite.dart' hide Permission, Locale;
 import 'package:codex_firebase/providers.dart';
 import 'package:codex_firebase/services/connectivity_service.dart';
 import 'package:codex_firebase/services/appwrite_storage_service.dart';
 import 'package:codex_firebase/views/Splash_Screen.dart';
 import 'package:codex_firebase/views/no_internet_widget.dart';
-
-// ✅ استيراد الـ ViewModel الخاص بالـ AI لحل مشكلة الـ ProviderNotFoundException
 import 'package:codex_firebase/modelview/db_ai_vm.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
+
+import 'modelview/cart_vm.dart';
 
 late final AppwriteStorageService appwriteStorageService;
 
@@ -36,20 +38,42 @@ class CodexApp extends StatelessWidget {
         ...AppProviders.providers,
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
         Provider<AppwriteStorageService>.value(value: appwriteStorageService),
-
-        // ✅ إضافة البروفايدرز الخاص بالـ AI هنا ليتعرف عليه التطبيق في كل الشاشات
         ChangeNotifierProvider(create: (_) => DB_AI_Vm()),
+        ChangeNotifierProvider(create: (_) => Cart_Vm()),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'CODEX',
-        theme: ThemeData(
-          primaryColor: const Color(0xFF429EBD),
-          scaffoldBackgroundColor: Colors.white,
-          fontFamily: 'Tajawal',
-          useMaterial3: true,
-        ),
-        home: const ConnectivityWrapper(),
+      child: Consumer<Language_Vm>(
+        builder: (context, langVm, child) {
+          return MaterialApp(
+            key: ValueKey(langVm.currentLanguage),
+            debugShowCheckedModeBanner: false,
+            title: 'CODEX',
+            locale: langVm.locale,
+            supportedLocales: const [
+              Locale('ar'),
+              Locale('en'),
+            ],
+            // ✅ الإضافة الأساسية لحل المشكلة
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: ThemeData(
+              primaryColor: const Color(0xFF429EBD),
+              scaffoldBackgroundColor: Colors.white,
+              fontFamily: 'Tajawal',
+              useMaterial3: true,
+            ),
+            // ✅ builder يبقى كما هو - الآن يعمل صح لأن Localizations موجودة
+            builder: (context, child) {
+              return Directionality(
+                textDirection: langVm.textDirection,
+                child: child!,
+              );
+            },
+            home: const ConnectivityWrapper(),
+          );
+        },
       ),
     );
   }
@@ -72,13 +96,11 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
   Future<void> requestPermissions() async {
     try {
       final camera = await Permission.camera.request();
-      print('✅ الكاميرا: $camera');
-
+      print('Camera: $camera');
       final storage = await Permission.storage.request();
-      print('✅ التخزين: $storage');
-
+      print('Storage: $storage');
     } catch (e) {
-      print('❌ خطأ: $e');
+      print('Error: $e');
     }
   }
 
@@ -90,9 +112,7 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
           return Scaffold(
             body: NoInternetWidget(
               onRetry: () async {
-                if (context.mounted) {
-                  setState(() {});
-                }
+                if (context.mounted) setState(() {});
               },
             ),
           );

@@ -11,9 +11,11 @@ import 'package:codex_firebase/modelview/Report_vm.dart';
 import 'package:codex_firebase/modelview/reserve.dart';
 import 'package:codex_firebase/modelview/search_vm.dart';
 import 'package:codex_firebase/modelview/theme_vm.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
 
 class AppProviders {
   static List<ChangeNotifierProvider> get providers => [
+    ChangeNotifierProvider<Language_Vm>(create: (_) => Language_Vm()),
     ChangeNotifierProvider<Theme_Vm>(create: (_) => Theme_Vm()),
     ChangeNotifierProvider<User_Vm>(create: (_) => User_Vm()),
     ChangeNotifierProvider<Prodect_Vm>(create: (_) => Prodect_Vm()),

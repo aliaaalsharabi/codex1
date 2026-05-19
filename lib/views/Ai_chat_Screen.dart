@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:codex_firebase/constants/colors.dart';
-import 'package:codex_firebase/constants/sizes.dart';
 import 'package:codex_firebase/modelview/theme_vm.dart';
 import 'package:codex_firebase/modelview/db_ai_vm.dart';
 import 'package:codex_firebase/views/Login_View.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
@@ -18,11 +19,14 @@ class AiChatScreen extends StatefulWidget {
 class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   bool _isLoading = false;
+
+  // ✅ ID آخر رسالة AI لعرض animation ظهور فقط
+  String? _lastAiMessageId;
+
+  static const Color _primaryBlue = Color(0xFF429EBD);
 
   @override
   void initState() {
@@ -37,381 +41,958 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
-  // ================= CHECK AUTH =================
   void _checkAuth() {
     if (_auth.currentUser == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const LoginScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       });
     }
   }
 
-  // ================= SCROLL TO BOTTOM (نسخة آمنة ومعدلة) =================
   void _scrollToBottom() {
-    // التحقق المزدوج لمنع خطأ التعرّض للأبعاد قبل بناء القائمة
-    if (_scrollController.hasClients && _scrollController.positions.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients &&
+          _scrollController.positions.isNotEmpty) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
-  // ================= SEND MESSAGE =================
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) {
-      return;
-    }
-
+    final loc =
+        Provider.of<Language_Vm>(context, listen: false).localization;
+    if (_messageController.text.trim().isEmpty) return;
     if (_auth.currentUser == null) {
-      _showError('الرجاء تسجيل الدخول أولاً');
+      _showSnackBar(loc.pleaseLogin, color: TColors.error);
       return;
     }
 
     final userMessage = _messageController.text.trim();
     _messageController.clear();
-
     setState(() => _isLoading = true);
     _scrollToBottom();
 
     try {
-      final aiViewModel = Provider.of<DB_AI_Vm>(context, listen: false);
-
-      // جلب التوكن بشكل ديناميكي إذا توفر لديكِ كلاس إدارة مستخدمين
-      String mySanctumToken = '';
-
-      // استدعاء الدالة المدمجة التي ترفع للفايربيس وتجلب الرد من لارفيل (Llama)
-      bool success = await aiViewModel.sendChatToLaravelAndFirebase(
+      final aiVm = Provider.of<DB_AI_Vm>(context, listen: false);
+      final success = await aiVm.sendChatToLaravelAndFirebase(
         userMessage: userMessage,
         userId: _auth.currentUser!.uid,
-        sanctumToken: mySanctumToken,
+        sanctumToken: '',
       );
 
-      if (!success && aiViewModel.errorMessage != null) {
-        _showError(aiViewModel.errorMessage!);
+      if (success) {
+        // ✅ احفظ ID آخر رسالة AI لعرض animation الظهور فقط
+        final snap = await _firestore
+            .collection('ai_chats')
+            .where('userId', isEqualTo: _auth.currentUser!.uid)
+            .where('isUser', isEqualTo: false)
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+
+        if (snap.docs.isNotEmpty && mounted) {
+          setState(() => _lastAiMessageId = snap.docs.first.id);
+        }
+      } else if (aiVm.errorMessage != null) {
+        _showSnackBar(aiVm.errorMessage!, color: TColors.error);
       }
 
       _scrollToBottom();
-
     } catch (e) {
-      print('❌ خطأ في الإرسال: $e');
-      _showError('فشل معالجة الطلب: ${e.toString()}');
+      _showSnackBar('فشل معالجة الطلب: $e', color: TColors.error);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ================= ERROR SNAP =================
-  void _showError(String message) {
+  void _showSnackBar(String msg, {Color color = _primaryBlue}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
-        backgroundColor: TColors.error,
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(14),
       ),
     );
   }
 
-  // ================= BUILD =================
+  void _showClearDialog() {
+    final isDark =
+        Provider.of<Theme_Vm>(context, listen: false).isDarkMode;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? TColors.darkerGrey : TColors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: const Text('مسح المحادثة',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('هل تريد حذف كل المحادثة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('إلغاء',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _lastAiMessageId = null);
+              Provider.of<DB_AI_Vm>(context, listen: false)
+                  .clearChat(_auth.currentUser!.uid);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // BUILD
+  // ──────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
+    final isDark = context.watch<Theme_Vm>().isDarkMode;
+    final langVm = context.watch<Language_Vm>();
+    final loc = langVm.localization;
     final userId = _auth.currentUser?.uid ?? '';
-    final backgroundColor = isDark ? const Color(0xFF121212) : const Color(0xFFF4F8FB);
+    final size = MediaQuery.of(context).size;
 
-    if (userId.isEmpty) {
-      return Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          elevation: 0,
-          centerTitle: true,
-          foregroundColor: Colors.white,
-          title: const Text('المساعد الذكي', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF4FA8D8), Color(0xFF72C6EF)]),
+    if (userId.isEmpty) return _buildLoginRequired(isDark, loc);
+
+    return Scaffold(
+      backgroundColor: _primaryBlue,
+      body: Column(
+        children: [
+          // HEADER
+          SizedBox(
+            height: size.height * 0.17,
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 4,
+                    left: 8,
+                    child: IconButton(
+                      onPressed: _showClearDialog,
+                      tooltip: 'مسح المحادثة',
+                      icon: const Icon(
+                        Icons.delete_sweep_outlined,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.12),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.smart_toy_outlined,
+                            color: _primaryBlue,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${loc.aiSmartAssistant} ✨',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF4CAF50),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'مساعد Codex الذكي',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.85),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
-                  ),
-                  child: Icon(Icons.lock_outline, size: 70, color: TColors.primary),
+
+          // BODY
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? TColors.dark
+                    : const Color(0xFFF5FAFD),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
                 ),
-                const SizedBox(height: 25),
-                Text(
-                  'الرجاء تسجيل الدخول أولاً',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87),
-                ),
-                const SizedBox(height: 25),
-                SizedBox(
-                  width: 180,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding:
+                    const EdgeInsets.only(top: 10, bottom: 4),
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? TColors.grey.withOpacity(0.3)
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    child: const Text('تسجيل الدخول', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                  ),
+                  Expanded(
+                    child: _buildMessagesList(
+                        isDark, langVm, loc, userId),
+                  ),
+                  if (_isLoading) _buildTypingIndicator(isDark, loc),
+                  _buildInputBar(isDark, loc),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // MESSAGES LIST
+  // ──────────────────────────────────────────
+
+  Widget _buildMessagesList(
+      bool isDark,
+      Language_Vm langVm,
+      dynamic loc,
+      String userId,
+      ) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('ai_chats')
+          .where('userId', isEqualTo: userId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: _primaryBlue),
+          );
+        }
+        if (snapshot.hasError) return _buildError(isDark, loc);
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildEmptyState(isDark, loc);
+        }
+
+        final messages = List.from(snapshot.data!.docs)
+          ..sort((a, b) {
+            final aT =
+            (a.data() as Map<String, dynamic>)['timestamp']
+            as Timestamp?;
+            final bT =
+            (b.data() as Map<String, dynamic>)['timestamp']
+            as Timestamp?;
+            if (aT == null || bT == null) return 0;
+            return aT.compareTo(bT);
+          });
+
+        _scrollToBottom();
+
+        return ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+          itemCount: messages.length,
+          physics: const BouncingScrollPhysics(),
+          itemBuilder: (context, index) {
+            final doc = messages[index];
+            final data = doc.data() as Map<String, dynamic>;
+            final isUser = data['isUser'] ?? false;
+            final message = data['message'] as String? ?? '';
+            final timestamp = data['timestamp'] as Timestamp?;
+            // ✅ هل هي آخر رسالة AI جديدة؟
+            final isNewAi =
+                !isUser && doc.id == _lastAiMessageId;
+
+            return _buildMessageBubble(
+              isDark: isDark,
+              isUser: isUser,
+              message: message,
+              timestamp: timestamp,
+              langVm: langVm,
+              loc: loc,
+              isNewMessage: isNewAi,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // MESSAGE BUBBLE
+  // ──────────────────────────────────────────
+
+  Widget _buildMessageBubble({
+    required bool isDark,
+    required bool isUser,
+    required String message,
+    required Language_Vm langVm,
+    required dynamic loc,
+    Timestamp? timestamp,
+    bool isNewMessage = false,
+  }) {
+    final time = timestamp != null
+        ? TimeOfDay.fromDateTime(timestamp.toDate()).format(context)
+        : '';
+
+    // ✅ animation ظهور ناعم للرسائل الجديدة بدون ارتجاج
+    final bubble = Align(
+      alignment: isUser
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: Row(
+        mainAxisAlignment:
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // أيقونة AI
+          if (!isUser)
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(bottom: 4, left: 6),
+              decoration: BoxDecoration(
+                color: _primaryBlue.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.smart_toy_outlined,
+                color: _primaryBlue,
+                size: 18,
+              ),
+            ),
+
+          // الفقاعة
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              constraints: BoxConstraints(
+                maxWidth:
+                MediaQuery.of(context).size.width * 0.72,
+              ),
+              decoration: BoxDecoration(
+                color: isUser
+                    ? _primaryBlue
+                    : (isDark
+                    ? TColors.darkerGrey
+                    : Colors.white),
+                borderRadius: BorderRadiusDirectional.only(
+                  topStart: const Radius.circular(18),
+                  topEnd: const Radius.circular(18),
+                  bottomStart:
+                  Radius.circular(isUser ? 18 : 4),
+                  bottomEnd:
+                  Radius.circular(isUser ? 4 : 18),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ✅ اسم المرسل — ConstrainedBox يحل overflow نهائياً
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                      MediaQuery.of(context).size.width *
+                          0.50,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isUser
+                              ? Icons.person_outline
+                              : Icons.smart_toy_outlined,
+                          size: 13,
+                          color: isUser
+                              ? Colors.white70
+                              : _primaryBlue.withOpacity(0.7),
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            isUser ? loc.you : 'مساعد Codex',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isUser
+                                  ? Colors.white70
+                                  : _primaryBlue
+                                  .withOpacity(0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // ✅ Markdown للـ AI — نص عادي للمستخدم
+                  isUser
+                      ? Text(
+                    message,
+                    textDirection: langVm.textDirection,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: Colors.white,
+                    ),
+                  )
+                      : MarkdownBody(
+                    data: message,
+                    shrinkWrap: true,
+                    fitContent: true,
+                    styleSheet: MarkdownStyleSheet(
+                      p: TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: isDark
+                            ? TColors.white
+                            : Colors.black87,
+                      ),
+                      strong: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? TColors.white
+                            : Colors.black87,
+                      ),
+                      em: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: isDark
+                            ? TColors.white
+                            : Colors.black87,
+                      ),
+                      listBullet: const TextStyle(
+                        fontSize: 14,
+                        color: _primaryBlue,
+                      ),
+                      h1: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
+                      h2: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                      h3: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold),
+                      code: TextStyle(
+                        fontSize: 13,
+                        backgroundColor: isDark
+                            ? Colors.black26
+                            : Colors.grey.shade100,
+                        color: _primaryBlue,
+                      ),
+                      blockquote: TextStyle(
+                        color: isDark
+                            ? TColors.grey
+                            : Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  // الوقت
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isUser
+                            ? Colors.white.withOpacity(0.6)
+                            : (isDark
+                            ? TColors.grey
+                            : Colors.grey.shade400),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // double tick
+          if (isUser)
+            Padding(
+              padding:
+              const EdgeInsets.only(bottom: 4, right: 4),
+              child: Icon(
+                Icons.done_all,
+                size: 14,
+                color: _primaryBlue.withOpacity(0.6),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    // ✅ animation ظهور ناعم للرسائل الجديدة فقط
+    if (isNewMessage) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+        builder: (_, value, child) => Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        ),
+        child: bubble,
+      );
+    }
+
+    return bubble;
+  }
+
+  // ──────────────────────────────────────────
+  // TYPING INDICATOR
+  // ──────────────────────────────────────────
+
+  Widget _buildTypingIndicator(bool isDark, dynamic loc) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _primaryBlue.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.smart_toy_outlined,
+                color: _primaryBlue, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? TColors.darkerGrey : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    color: _primaryBlue,
+                    strokeWidth: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  loc.analyzing,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark
+                        ? TColors.grey
+                        : Colors.grey.shade500,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        foregroundColor: Colors.white,
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.smart_toy, color: Colors.white, size: 18),
-            ),
-            SizedBox(width: 10),
-            Text('المساعد البرمجي الذكي ✨', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-          ],
-        ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF4FA8D8), Color(0xFF72C6EF)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-          ),
-        ),
+        ],
       ),
-      body: Column(
-        children: [
-          // ================= CHAT LISTVIEW =================
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('ai_chats')
-                  .where('userId', isEqualTo: userId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: TColors.primary));
-                }
+    );
+  }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, size: 70, color: Colors.red),
-                          const SizedBox(height: 15),
-                          Text(
-                            'حدث خطأ أثناء تحميل المحادثات',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () => setState(() {}),
-                            child: const Text('إعادة المحاولة', style: TextStyle(fontFamily: 'Cairo')),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
+  // ──────────────────────────────────────────
+  // INPUT BAR
+  // ──────────────────────────────────────────
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(25),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isDark ? Colors.white10 : Colors.white,
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
-                            ),
-                            child: Icon(Icons.chat_bubble_outline, size: 70, color: TColors.primary),
-                          ),
-                          const SizedBox(height: 25),
-                          Text(
-                            'ابدأ محادثة مع المساعد الذكي',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'اسأل أي سؤال برمجياً أو حول المنصة وسيتم الرد عليك فوراً',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, fontFamily: 'Cairo', color: isDark ? Colors.white60 : Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                // جلب القائمة وترتيبها داخل الكود بناءً على التوقيت الزمني بشكل آمن
-                final messages = List.from(snapshot.data!.docs);
-                messages.sort((a, b) {
-                  final aTime = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                  final bTime = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                  if (aTime == null || bTime == null) return 0;
-                  return aTime.compareTo(bTime);
-                });
-
-                // استدعاء النزول لأسفل القائمة بطريقة آمنة
-                _scrollToBottom();
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  shrinkWrap: true,
-                  physics: const BouncingScrollPhysics(),
-                  itemBuilder: (context, index) {
-                    final data = messages[index].data() as Map<String, dynamic>;
-                    final isUser = data['isUser'] ?? false;
-
-                    return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 14),
-                        padding: const EdgeInsets.all(16),
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                        decoration: BoxDecoration(
-                          gradient: isUser ? const LinearGradient(colors: [Color(0xFF4FA8D8), Color(0xFF72C6EF)]) : null,
-                          color: isUser ? null : (isDark ? const Color(0xFF1F1F1F) : Colors.white),
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(22),
-                            topRight: const Radius.circular(22),
-                            bottomLeft: Radius.circular(isUser ? 22 : 0),
-                            bottomRight: Radius.circular(isUser ? 0 : 22),
-                          ),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(isUser ? Icons.person : Icons.smart_toy, size: 16, color: isUser ? Colors.white : TColors.primary),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isUser ? 'أنت' : 'المساعد الذكي (Llama)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Cairo', color: isUser ? Colors.white : TColors.primary),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              data['message'] ?? '',
-                              style: TextStyle(fontSize: 15, height: 1.6, fontFamily: 'Cairo', color: isUser ? Colors.white : (isDark ? Colors.white : Colors.black87)),
-                              textDirection: TextDirection.rtl,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+  Widget _buildInputBar(bool isDark, dynamic loc) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      decoration: BoxDecoration(
+        color: isDark ? TColors.darkerGrey : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
           ),
-
-          // ================= LOADER OVERLAY =================
-          if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: TColors.primary, strokeWidth: 2)),
-                  const SizedBox(width: 12),
-                  Text(
-                    'جاري تحليل السؤال وجلب الرد الذكي...',
-                    style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDark ? Colors.white60 : Colors.black54),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                maxLines: 4,
+                minLines: 1,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) =>
+                _isLoading ? null : _sendMessage(),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? TColors.white : Colors.black87,
+                ),
+                decoration: InputDecoration(
+                  hintText: loc.askAi,
+                  hintStyle: TextStyle(
+                    color: isDark
+                        ? TColors.grey
+                        : Colors.grey.shade400,
+                    fontSize: 14,
                   ),
-                ],
+                  filled: true,
+                  fillColor: isDark
+                      ? TColors.dark
+                      : const Color(0xFFF5FAFD),
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 13, horizontal: 18),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                        color: _primaryBlue.withOpacity(0.1)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                        color: _primaryBlue, width: 1.5),
+                  ),
+                ),
               ),
             ),
-
-          // ================= INPUT BOTTOM BAR =================
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))],
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _isLoading ? null : _sendMessage,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _isLoading
+                      ? _primaryBlue.withOpacity(0.5)
+                      : _primaryBlue,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: _isLoading
+                      ? []
+                      : [
+                    BoxShadow(
+                      color: _primaryBlue.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.send_rounded,
+                    color: Colors.white, size: 22),
+              ),
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(20)),
-                      child: TextField(
-                        controller: _messageController,
-                        textAlign: TextAlign.right,
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontFamily: 'Cairo'),
-                        onSubmitted: (_) => _isLoading ? null : _sendMessage(),
-                        decoration: InputDecoration(
-                          hintText: 'اسأل المساعد الذكي...',
-                          hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontFamily: 'Cairo'),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // EMPTY STATE
+  // ──────────────────────────────────────────
+
+  Widget _buildEmptyState(bool isDark, dynamic loc) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: _primaryBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 52,
+                color: _primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              loc.startConversation,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? TColors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'مساعدك الذكي لإيجاد الوظائف والمنتجات',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color:
+                isDark ? TColors.grey : Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                '💼 ابحث لي عن وظائف متاحة',
+                '🛍️ ساعدني في وصف منتجي',
+                '📝 كيف أنشئ إعلاناً جيداً؟',
+                '🔍 ما أفضل مهارات السوق؟',
+              ].map((suggestion) {
+                return GestureDetector(
+                  onTap: () {
+                    _messageController.text =
+                        suggestion.substring(3);
+                    _sendMessage();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _primaryBlue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: _primaryBlue.withOpacity(0.2)),
+                    ),
+                    child: Text(
+                      suggestion,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _primaryBlue,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // ERROR STATE
+  // ──────────────────────────────────────────
+
+  Widget _buildError(bool isDark, dynamic loc) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.error_outline,
+                color: Colors.red, size: 48),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            loc.errorOccurred,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: isDark ? TColors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => setState(() {}),
+            icon: const Icon(Icons.refresh),
+            label: Text(loc.retry),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // LOGIN REQUIRED
+  // ──────────────────────────────────────────
+
+  Widget _buildLoginRequired(bool isDark, dynamic loc) {
+    return Scaffold(
+      backgroundColor: _primaryBlue,
+      body: Column(
+        children: [
+          SizedBox(
+            height: 160,
+            child: SafeArea(
+              bottom: false,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(Icons.smart_toy_outlined,
+                      color: _primaryBlue, size: 32),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? TColors.dark
+                    : const Color(0xFFF5FAFD),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   Container(
-                    height: 56,
-                    width: 56,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFF4FA8D8), Color(0xFF72C6EF)])),
-                    child: IconButton(
-                      onPressed: _isLoading ? null : _sendMessage,
-                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: _primaryBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_outline,
+                        size: 52, color: _primaryBlue),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    loc.pleaseLogin,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? TColors.white
+                          : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: 200,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LoginScreen()),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryBlue,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        loc.login,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
                 ],
