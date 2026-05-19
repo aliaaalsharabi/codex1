@@ -8,22 +8,38 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
-  connectivity_plus:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
+  # ══════════════════════════════════════
   # Firebase
+  # ══════════════════════════════════════
   firebase_core:
   firebase_auth:
   cloud_firestore:
   firebase_storage:
 
+
+  # ══════════════════════════════════════
   # State Management & Utilities
+  # ══════════════════════════════════════
   provider:
   shared_preferences:
+  connectivity_plus:
+  http:
+  flutter_markdown:
+  # ══════════════════════════════════════
+  # Media & Storage
+  # ══════════════════════════════════════
   image_picker:
   appwrite:
   mime:
+
+  # ══════════════════════════════════════
+  # UI & Localization
+  # ══════════════════════════════════════
   intl:
   cupertino_icons:
   permission_handler:
@@ -41,4 +57,3 @@ flutter:
 
 dependency_overrides:
   flutter_web_auth_2: ^4.1.0
-

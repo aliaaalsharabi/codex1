@@ -1,31 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:codex_firebase/model/db_ai.dart';
-import 'package:codex_firebase/services/ai_service.dart'; // استيراد السيرفيس الجديد
+import 'package:codex_firebase/utils//gemini_service.dart';
 import 'base_vm.dart';
 
 class DB_AI_Vm extends BaseVM {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AIService _aiService = AIService(); // دمج السيرفيس داخل الـ ViewModel
+  final GeminiService _gemini = GeminiService();
 
   Future<List<DBAI>> getAllAIMessages() async {
     try {
       setLoading(true);
-      QuerySnapshot snapshot = await _firestore
+      final snapshot = await _firestore
           .collection('ai_messages')
           .orderBy('createdAt', descending: true)
           .get();
-      List<DBAI> messages = [];
-      for (var doc in snapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
-        messages.add(DBAI(
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return DBAI(
           id: doc.id,
           userId: data['userId'] ?? '',
           prompt: data['prompt'] ?? '',
           response: data['response'] ?? '',
           createdAt: (data['createdAt'] as Timestamp).toDate(),
-        ));
-      }
-      return messages;
+        );
+      }).toList();
     } catch (e) {
       setError(e.toString());
       return [];
@@ -34,7 +32,6 @@ class DB_AI_Vm extends BaseVM {
     }
   }
 
-  /// دالة معالجة إرسال الرسالة وجلب الرد الفعلي من اللارفيل وحفظه بالفايربيس
   Future<bool> sendChatToLaravelAndFirebase({
     required String userMessage,
     required String userId,
@@ -43,7 +40,7 @@ class DB_AI_Vm extends BaseVM {
     try {
       setLoading(true);
 
-      // 1. حفظ رسالة المستخدم في مجموعة 'ai_chats' بالفايربيس لعرضها فوراً
+      // 1 — احفظ رسالة المستخدم فوراً
       await _firestore.collection('ai_chats').add({
         'userId': userId,
         'message': userMessage,
@@ -51,21 +48,20 @@ class DB_AI_Vm extends BaseVM {
         'timestamp': Timestamp.now(),
       });
 
-      // 2. إرسال الطلب للارفيل ليعود برد الذكاء الاصطناعي الحقيقي من Groq
-      String? realAIResponse = await _aiService.getSmartChatResponse(
-        message: userMessage,
-        sanctumToken: sanctumToken,
-      );
+      // 2 — اجلب بيانات التطبيق حسب نوع السؤال
+      final contextData = await _fetchAppContext(userMessage);
 
-      // رد احتياطي محلي داخل الفلاتر إذا تعطل السيرفر فجأة
-      if (realAIResponse == null || realAIResponse.isEmpty) {
-        realAIResponse = "عذراً، لم أتمكن من الاتصال بالخادم الرئيسي حالياً. يرجى مراجعة الاتصال.";
-      }
+      // 3 — أرسل الرسالة + البيانات
+      final enrichedMessage = contextData.isEmpty
+          ? userMessage
+          : '$userMessage\n\n[بيانات حقيقية من التطبيق — استخدمها في ردك]:$contextData';
 
-      // 3. حفظ رد الـ AI الفعلي القادم من اللارفيل داخل الفايربيس ليتحدث الـ StreamBuilder تلقائياً
+      final aiReply = await _gemini.sendMessage(enrichedMessage);
+
+      // 4 — احفظ الرد
       await _firestore.collection('ai_chats').add({
         'userId': userId,
-        'message': realAIResponse,
+        'message': aiReply,
         'isUser': false,
         'timestamp': Timestamp.now(),
       });
@@ -79,7 +75,89 @@ class DB_AI_Vm extends BaseVM {
     }
   }
 
-  // الدالة القديمة نتركها كما هي للاحتياط
+  // ✅ جلب السياق من Firestore
+  Future<String> _fetchAppContext(String message) async {
+    String context = '';
+    final msg = message.toLowerCase();
+
+    final isJob = msg.contains('وظيف') ||
+        msg.contains('عمل') ||
+        msg.contains('توظيف') ||
+        msg.contains('job') ||
+        msg.contains('hire') ||
+        msg.contains('career');
+
+    final isProduct = msg.contains('منتج') ||
+        msg.contains('سعر') ||
+        msg.contains('بضاعة') ||
+        msg.contains('product') ||
+        msg.contains('price') ||
+        msg.contains('buy');
+
+    // ✅ وظائف
+    if (isJob) {
+      try {
+        final snap = await _firestore
+            .collection('jobs')
+            .where('status', isEqualTo: 'open')
+            .limit(8)
+            .get();
+
+        if (snap.docs.isNotEmpty) {
+          context += '\n\nالوظائف المتاحة:\n';
+          for (final doc in snap.docs) {
+            final d = doc.data();
+            context +=
+            '• ${d['nameJob'] ?? 'غير محدد'} — الموقع: ${d['location'] ?? 'غير محدد'} — النوع: ${d['jobType'] ?? 'غير محدد'}\n';
+          }
+        } else {
+          context += '\n\nلا توجد وظائف متاحة حالياً.';
+        }
+      } catch (_) {}
+    }
+
+    // ✅ منتجات
+    if (isProduct) {
+      try {
+        final snap = await _firestore
+            .collection('products')
+            .where('status', isEqualTo: 'available')
+            .limit(8)
+            .get();
+
+        if (snap.docs.isNotEmpty) {
+          context += '\n\nالمنتجات المتاحة:\n';
+          for (final doc in snap.docs) {
+            final d = doc.data();
+            context +=
+            '• ${d['name'] ?? 'غير محدد'} — السعر: ${d['price'] ?? 0} — الفئة: ${d['category'] ?? 'عام'}\n';
+          }
+        } else {
+          context += '\n\nلا توجد منتجات متاحة حالياً.';
+        }
+      } catch (_) {}
+    }
+
+    return context;
+  }
+
+  // ✅ مسح المحادثة
+  Future<void> clearChat(String userId) async {
+    try {
+      _gemini.clearHistory();
+      final docs = await _firestore
+          .collection('ai_chats')
+          .where('userId', isEqualTo: userId)
+          .get();
+      for (final doc in docs.docs) {
+        await doc.reference.delete();
+      }
+      notifyListeners();
+    } catch (e) {
+      setError(e.toString());
+    }
+  }
+
   Future<void> addAIMessage(DBAI message) async {
     try {
       setLoading(true);

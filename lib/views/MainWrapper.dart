@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:codex_firebase/modelview/theme_vm.dart'; // تأكدي من المسار الصحيح للثيم
-import 'package:codex_firebase/constants/colors.dart';   // تأكدي من المسار الصحيح للثوابت
+import 'package:codex_firebase/modelview/theme_vm.dart';
+import 'package:codex_firebase/constants/colors.dart';
+import 'package:codex_firebase/modelview/language_vm.dart';
 import 'home_screen.dart';
 import 'store_screen.dart';
 import 'consultations_screen.dart';
 import 'profile_screen.dart';
 import 'ads_screen.dart';
+
+const Color _primary = Color(0xFF429EBD);
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -28,45 +32,197 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // التحقق من حالة الوضع الليلي
-    final isDark = Provider.of<Theme_Vm>(context).isDarkMode;
+    final isDark = context.watch<Theme_Vm>().isDarkMode;
+    final loc    = context.watch<Language_Vm>().localization;
 
-    // الألوان المتغيرة بناءً على الوضع
-    final Color brandColor = const Color(0xFF5DB1DF);
-    final Color scaffoldBg = isDark ? TColors.dark : TColors.white;
-    final Color navBarBg = isDark ? TColors.darkerGrey : brandColor;
+    final Color scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF5FAFD);
+    final Color navBg      = isDark ? const Color(0xFF1A1A1A) : Colors.white;
 
-    return Scaffold(
-      backgroundColor: scaffoldBg,
-      appBar: _currentIndex == 4
-          ? null
-          : AppBar(
-        backgroundColor: navBarBg,
-        elevation: 0,
-        title: Text(
-          "CODEX",
-          style: TextStyle(color: isDark ? TColors.white : Colors.white),
+    // عناوين الصفحات
+    final titles = [loc.navAds, loc.navStore, loc.navConsultation, loc.navProfile];
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: scaffoldBg,
+
+        // ===== AppBar — نفس ستايل باقي الشاشات =====
+        appBar: _currentIndex == 4
+            ? null
+            : AppBar(
+          backgroundColor: _primary,
+          elevation: 0,
+          centerTitle: true,
+
+          // اسم التطبيق — نفس ستايل WelcomeScreen
+          title: Text(
+            loc.appName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+              letterSpacing: 2,
+            ),
+          ),
+
+          // زر الهوم — نفس ستايل زر التخطي في Onboarding
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.home_rounded,
+                      color: Colors.white, size: 22),
+                  onPressed: () => setState(() => _currentIndex = 4),
+                ),
+              ),
+            ),
+          ],
+
+          // عنوان الصفحة الحالية
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(32),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                titles[_currentIndex],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.85),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ),
         ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.home, color: isDark ? TColors.white : Colors.white),
-          onPressed: () => setState(() => _currentIndex = 4),
+
+        // ===== Body =====
+        body: _pages[_currentIndex],
+
+        // ===== BottomNav — أبيض منفصل عن AppBar =====
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: navBg,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NavItem(
+                    icon: Icons.announcement_outlined,
+                    activeIcon: Icons.announcement_rounded,
+                    label: loc.navAds,
+                    isActive: _currentIndex == 0,
+                    isDark: isDark,
+                    onTap: () => setState(() => _currentIndex = 0),
+                  ),
+                  _NavItem(
+                    icon: Icons.shopping_bag_outlined,
+                    activeIcon: Icons.shopping_bag_rounded,
+                    label: loc.navStore,
+                    isActive: _currentIndex == 1,
+                    isDark: isDark,
+                    onTap: () => setState(() => _currentIndex = 1),
+                  ),
+                  _NavItem(
+                    icon: Icons.chat_outlined,
+                    activeIcon: Icons.chat_rounded,
+                    label: loc.navConsultation,
+                    isActive: _currentIndex == 2,
+                    isDark: isDark,
+                    onTap: () => setState(() => _currentIndex = 2),
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    activeIcon: Icons.person_rounded,
+                    label: loc.navProfile,
+                    isActive: _currentIndex == 3,
+                    isDark: isDark,
+                    onTap: () => setState(() => _currentIndex = 3),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex == 4 ? 0 : _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: navBarBg,
-        selectedItemColor: isDark ? TColors.primary : Colors.white,
-        unselectedItemColor: isDark ? TColors.grey : Colors.white70,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.announcement), label: 'إعلانات'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'متجر'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'استشارة'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الحساب'),
-        ],
+    );
+  }
+}
+
+// ===== Custom Nav Item =====
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isActive;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isActive,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color activeColor   = _primary;
+    final Color inactiveColor = isDark ? Colors.white38 : Colors.grey.shade400;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? _primary.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isActive ? activeIcon : icon,
+                key: ValueKey(isActive),
+                color: isActive ? activeColor : inactiveColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                color: isActive ? activeColor : inactiveColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
