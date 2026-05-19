@@ -21,7 +21,7 @@ void main() async {
   await Firebase.initializeApp();
 
   final client = Client()
-      .setEndpoint('https://cloud.appwrite.io/v1')
+      .setEndpoint('https://fra.cloud.appwrite.io/v1')
       .setProject('6a067722000222d0bfbb');
 
   appwriteStorageService = AppwriteStorageService(client);
@@ -48,10 +48,7 @@ class CodexApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             title: 'CODEX',
             locale: langVm.locale,
-            supportedLocales: const [
-              Locale('ar'),
-              Locale('en'),
-            ],
+            supportedLocales: const [Locale('ar'), Locale('en')],
             // ✅ الإضافة الأساسية لحل المشكلة
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,

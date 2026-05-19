@@ -33,7 +33,7 @@ dependencies:
   # ══════════════════════════════════════
   # Media & Storage
   # ══════════════════════════════════════
-  image_picker:
+  image_picker: ^1.2.1
   appwrite:
   mime:
 
